@@ -187,6 +187,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
     <script>
         const isLoggedIn = <?php echo isset($_SESSION['customer_id']) ? 'true' : 'false'; ?>;
     </script>
-    <script src="script.js?v=4"></script>
+    <script src="script.js?v=5"></script>
 </body>
 </html>

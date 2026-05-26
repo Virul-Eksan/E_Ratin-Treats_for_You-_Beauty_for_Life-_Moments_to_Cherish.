@@ -153,7 +153,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // --- Cart Logic ---
-    let cart = [];
+    let cart = JSON.parse(localStorage.getItem('eratincart')) || [];
+    
+    const saveCart = () => {
+        localStorage.setItem('eratincart', JSON.stringify(cart));
+    };
     const cartBtn = document.getElementById('cart-btn');
     const cartSidebar = document.getElementById('cart-sidebar');
     const closeCartBtn = document.getElementById('close-cart');
@@ -182,6 +186,8 @@ document.addEventListener("DOMContentLoaded", () => {
             cart.push({ ...product, quantity: 1 });
         }
         
+        saveCart();
+        
         // Pulse animation
         cartBtn.classList.remove('pulse');
         void cartBtn.offsetWidth; // trigger reflow
@@ -197,6 +203,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (cart[itemIndex].quantity <= 0) {
                 cart.splice(itemIndex, 1);
             }
+            saveCart();
             updateCartUI();
         }
     };
@@ -300,6 +307,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (data.success) {
                     alert('Order placed successfully!');
                     cart = [];
+                    saveCart();
                     updateCartUI();
                     checkoutForm.reset();
                     checkoutModal.classList.add('hidden');
