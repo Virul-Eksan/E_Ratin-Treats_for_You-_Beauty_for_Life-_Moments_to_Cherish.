@@ -3,9 +3,15 @@ session_start();
 require_once '../db.php';
 
 $error = '';
+$success = '';
+if (isset($_GET['reset']) && $_GET['reset'] === 'success') {
+    $success = "Password reset successfully. You can now login.";
+}
+$activeForm = 'login';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['login_submit'])) {
+        $activeForm = 'login';
         $email = trim($_POST['login_email']);
         $password = $_POST['login_password'];
 
@@ -23,6 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = "Invalid email or password.";
         }
     } elseif (isset($_POST['register_submit'])) {
+        $activeForm = 'register';
         $name = trim($_POST['reg_name']);
         $email = trim($_POST['reg_email']);
         $password = $_POST['reg_password'];
@@ -45,10 +52,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = "Registration failed. Please try again.";
             }
         }
+    } elseif (isset($_POST['forgot_submit'])) {
+        $activeForm = 'forgot';
+        $email = trim($_POST['forgot_email']);
+        
+        $stmt = $pdo->prepare("SELECT id FROM customers WHERE email = ?");
+        $stmt->execute([$email]);
+        $user = $stmt->fetch();
+        
+        if ($user) {
+            $token = bin2hex(random_bytes(32));
+            $expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
+            
+            $updateStmt = $pdo->prepare("UPDATE customers SET reset_token = ?, reset_expires_at = ? WHERE id = ?");
+            $updateStmt->execute([$token, $expires, $user['id']]);
+            
+            $resetLink = "http://" . $_SERVER['HTTP_HOST'] . dirname($_SERVER['PHP_SELF']) . "/reset.php?token=" . $token;
+            
+            // For local testing, we display the link directly instead of sending an email.
+            $success = "Password reset link generated for testing: <br><a href='" . htmlspecialchars($resetLink) . "' style='color: #065f46; font-weight: bold; word-break: break-all; text-decoration: underline;'>Click here to reset password</a>";
+        } else {
+            // For security, don't confirm if email exists or not, just generic success
+            $success = "If your email is registered, you will receive a reset link shortly.";
+        }
     }
 }
 
-$showAlert = ($_SERVER['REQUEST_METHOD'] !== 'POST' && empty($error));
+$showAlert = ($_SERVER['REQUEST_METHOD'] !== 'POST' && empty($error) && empty($success));
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -67,6 +97,29 @@ $showAlert = ($_SERVER['REQUEST_METHOD'] !== 'POST' && empty($error));
             margin-bottom: 15px;
             text-align: center;
             font-size: 0.9rem;
+        }
+        .success-message {
+            color: #10b981;
+            background: #d1fae5;
+            border: 1px solid #34d399;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+        .forgot-link {
+            display: block;
+            text-align: right;
+            margin-top: -15px;
+            margin-bottom: 20px;
+            font-size: 0.85rem;
+            color: #c48a5a;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .forgot-link:hover {
+            text-decoration: underline;
         }
     </style>
 </head>
@@ -90,11 +143,14 @@ $showAlert = ($_SERVER['REQUEST_METHOD'] !== 'POST' && empty($error));
         <a href="../index.php"><img src="../logo.jpg" alt="Logo" class="auth-logo"></a>
         
         <?php if (!empty($error)): ?>
-            <div class="error-message"><?php echo htmlspecialchars($error); ?></div>
+            <div class="error-message" id="errorMsg"><?php echo htmlspecialchars($error); ?></div>
+        <?php endif; ?>
+        <?php if (!empty($success)): ?>
+            <div class="success-message" id="successMsg"><?php echo $success; ?></div>
         <?php endif; ?>
 
         <!-- Login Form -->
-        <div id="loginFormContainer" <?php echo (isset($_POST['register_submit']) && !empty($error)) ? 'class="hidden-form" style="display:none;"' : ''; ?>>
+        <div id="loginFormContainer" class="<?php echo $activeForm !== 'login' ? 'hidden-form' : ''; ?>" style="<?php echo $activeForm !== 'login' ? 'display:none;' : ''; ?>">
             <h2 class="auth-title">Welcome Back</h2>
             <p class="auth-subtitle">Login to access your account</p>
             
@@ -105,14 +161,15 @@ $showAlert = ($_SERVER['REQUEST_METHOD'] !== 'POST' && empty($error));
                 <div class="form-group">
                     <input type="password" name="login_password" class="form-control" placeholder="Password" required>
                 </div>
+                <div class="forgot-link" onclick="showForm('forgot')">Forgot Password?</div>
                 <button type="submit" name="login_submit" class="btn-primary">Login</button>
             </form>
             
-            <p class="toggle-text">Don't have an account? <span class="toggle-link" onclick="toggleForms()">Register Here</span></p>
+            <p class="toggle-text">Don't have an account? <span class="toggle-link" onclick="showForm('register')">Register Here</span></p>
         </div>
 
         <!-- Registration Form -->
-        <div id="registerFormContainer" <?php echo (isset($_POST['register_submit']) && !empty($error)) ? '' : 'class="hidden-form" style="display:none;"'; ?>>
+        <div id="registerFormContainer" class="<?php echo $activeForm !== 'register' ? 'hidden-form' : ''; ?>" style="<?php echo $activeForm !== 'register' ? 'display:none;' : ''; ?>">
             <h2 class="auth-title">Create Account</h2>
             <p class="auth-subtitle">Join us to start shopping</p>
             
@@ -129,19 +186,39 @@ $showAlert = ($_SERVER['REQUEST_METHOD'] !== 'POST' && empty($error));
                 <button type="submit" name="register_submit" class="btn-primary">Create Account</button>
             </form>
             
-            <p class="toggle-text">Already have an account? <span class="toggle-link" onclick="toggleForms()">Login Here</span></p>
+            <p class="toggle-text">Already have an account? <span class="toggle-link" onclick="showForm('login')">Login Here</span></p>
+        </div>
+
+        <!-- Forgot Password Form -->
+        <div id="forgotFormContainer" class="<?php echo $activeForm !== 'forgot' ? 'hidden-form' : ''; ?>" style="<?php echo $activeForm !== 'forgot' ? 'display:none;' : ''; ?>">
+            <h2 class="auth-title">Reset Password</h2>
+            <p class="auth-subtitle">Enter your email to receive a reset link</p>
+            
+            <form action="" method="POST">
+                <div class="form-group">
+                    <input type="email" name="forgot_email" class="form-control" placeholder="Email Address" required value="<?php echo isset($_POST['forgot_email']) ? htmlspecialchars($_POST['forgot_email']) : ''; ?>">
+                </div>
+                <button type="submit" name="forgot_submit" class="btn-primary">Send Reset Link</button>
+            </form>
+            
+            <p class="toggle-text">Remembered your password? <span class="toggle-link" onclick="showForm('login')">Login Here</span></p>
         </div>
     </div>
 </div>
 
 <script>
-    function toggleForms() {
-        const loginForm = document.getElementById('loginFormContainer');
-        const registerForm = document.getElementById('registerFormContainer');
+    function showForm(formId) {
+        const forms = {
+            'login': document.getElementById('loginFormContainer'),
+            'register': document.getElementById('registerFormContainer'),
+            'forgot': document.getElementById('forgotFormContainer')
+        };
         const authCard = document.getElementById('authCard');
-        const errorMsg = document.querySelector('.error-message');
+        const errorMsg = document.getElementById('errorMsg');
+        const successMsg = document.getElementById('successMsg');
 
         if (errorMsg) errorMsg.style.display = 'none';
+        if (successMsg) successMsg.style.display = 'none';
 
         // Add a small bounce animation to the card when toggling
         authCard.style.transform = 'scale(0.95)';
@@ -149,18 +226,16 @@ $showAlert = ($_SERVER['REQUEST_METHOD'] !== 'POST' && empty($error));
             authCard.style.transform = 'scale(1)';
         }, 150);
 
-        if (loginForm.classList.contains('hidden-form')) {
-            loginForm.style.display = 'block';
-            setTimeout(() => { loginForm.classList.remove('hidden-form'); }, 10);
-            
-            registerForm.classList.add('hidden-form');
-            setTimeout(() => { registerForm.style.display = 'none'; }, 400);
-        } else {
-            registerForm.style.display = 'block';
-            setTimeout(() => { registerForm.classList.remove('hidden-form'); }, 10);
-            
-            loginForm.classList.add('hidden-form');
-            setTimeout(() => { loginForm.style.display = 'none'; }, 400);
+        for (let key in forms) {
+            if (key !== formId && forms[key]) {
+                forms[key].style.display = 'none';
+                forms[key].classList.add('hidden-form');
+            }
+        }
+
+        if (forms[formId]) {
+            forms[formId].style.display = 'block';
+            setTimeout(() => { forms[formId].classList.remove('hidden-form'); }, 10);
         }
     }
 
