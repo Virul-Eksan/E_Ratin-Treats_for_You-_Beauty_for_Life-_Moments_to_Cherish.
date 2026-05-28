@@ -848,8 +848,7 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                     // Populate Profile
                     document.getElementById('cp-avatar').src = customerData.avatar;
                     document.getElementById('cp-name').innerText = customerData.name;
-                    document.getElementById('cp-email').innerText = customerData.email;
-                    document.getElementById('cp-email').parentElement.innerHTML = `<strong>Email:</strong> <a href="mailto:${customerData.email}" style="color:var(--text-color)">${customerData.email}</a>`;
+                    document.getElementById('cp-email').innerHTML = `<a href="mailto:${customerData.email}" style="color:var(--text-color)">${customerData.email}</a>`;
                     document.getElementById('cp-phone').innerText = customerData.phone || 'N/A';
                     document.getElementById('cp-address').innerText = customerData.address || 'N/A';
                     document.getElementById('cp-joined').innerText = customerData.joined;
