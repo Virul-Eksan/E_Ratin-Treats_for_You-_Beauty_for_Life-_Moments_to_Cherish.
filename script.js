@@ -272,6 +272,12 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     };
 
+    window.removeFromCart = (productId) => {
+        cart = cart.filter(item => item.id != productId);
+        saveCart();
+        updateCartUI();
+    };
+
     const updateCartUI = () => {
         // Update badge
         const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -291,7 +297,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 itemEl.innerHTML = `
                     <img src="${item.image_path}" alt="${item.name}" class="cart-item-img" onerror="this.src='https://placehold.co/60x60/1e293b/FFF?text=Img'">
                     <div class="cart-item-info">
-                        <div class="cart-item-title">${item.name}</div>
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                            <div class="cart-item-title">${item.name}</div>
+                            <button class="remove-item-btn" onclick="removeFromCart(${item.id})" title="Remove item">&times;</button>
+                        </div>
                         <div class="cart-item-price">$${item.price}</div>
                         <div class="cart-item-controls">
                             <button class="qty-btn" onclick="changeQuantity(${item.id}, -1)">-</button>

@@ -646,6 +646,23 @@ footer a:hover {
     font-weight: bold;
 }
 
+.remove-item-btn {
+    background: none;
+    border: none;
+    color: #ef4444;
+    font-size: 1.4rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 5px;
+    opacity: 0.6;
+    transition: opacity 0.3s, transform 0.3s;
+}
+
+.remove-item-btn:hover {
+    opacity: 1;
+    transform: scale(1.15);
+}
+
 .cart-footer {
     padding: 20px;
     border-top: 1px solid rgba(216, 156, 138, 0.15);
@@ -929,19 +946,21 @@ footer a:hover {
 /* --- Toast Notification Styles --- */
 .toast-container {
     position: fixed;
-    bottom: 20px;
-    left: 20px;
+    bottom: 40px;
+    right: 110px; /* Space for the 60px cart button + gap */
+    left: auto;
     display: flex;
     flex-direction: column;
     gap: 10px;
     z-index: 9999;
     pointer-events: none;
+    align-items: flex-end;
 }
 
 .toast {
     background: rgba(255, 248, 244, 0.95);
     backdrop-filter: blur(8px);
-    border-left: 4px solid var(--primary-gold);
+    border-right: 4px solid var(--primary-gold);
     border-radius: 8px;
     padding: 12px 20px;
     box-shadow: 0 4px 15px rgba(75, 46, 43, 0.15);
@@ -951,9 +970,21 @@ footer a:hover {
     display: flex;
     align-items: center;
     gap: 10px;
-    transform: translateX(-120%);
+    transform: translateX(20px);
     opacity: 0;
     transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55), opacity 0.4s;
+    position: relative;
+}
+
+.toast::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: -12px;
+    transform: translateY(-50%);
+    border-top: 8px solid transparent;
+    border-bottom: 8px solid transparent;
+    border-left: 8px solid var(--primary-gold);
 }
 
 .toast.show {
