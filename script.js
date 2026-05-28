@@ -38,6 +38,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const catClass = `badge-${product.category.toLowerCase()}`;
 
+            const isSoldOut = parseInt(product.stock) <= 0;
+            const buttonHtml = isSoldOut 
+                ? `<button class="btn-buy" style="background: #334155; color: #94a3b8; cursor: not-allowed;" disabled>Sold Out</button>` 
+                : `<button class="btn-buy" onclick="addToCart(${product.id})">Add to Cart</button>`;
+
             card.innerHTML = `
                 <img src="${product.image_path}" alt="${product.name}" class="product-img" onerror="this.src='https://placehold.co/280x250/1e293b/FFF?text=Image'">
                 <div class="product-info">
@@ -46,7 +51,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     <p class="product-desc">${product.description}</p>
                     <div class="product-footer">
                         <span class="product-price">$${product.price}</span>
-                        <button class="btn-buy" onclick="addToCart(${product.id})">Add to Cart</button>
+                        ${buttonHtml}
                     </div>
                 </div>
             `;
@@ -165,6 +170,43 @@ document.addEventListener("DOMContentLoaded", () => {
     const cartItemsContainer = document.getElementById('cart-items');
     const cartTotalPrice = document.getElementById('cart-total-price');
 
+    // Stock alert elements
+    const stockAlertModal = document.getElementById('stock-alert-modal');
+    const stockAlertText = document.getElementById('stock-alert-text');
+    const btnStockOk = document.getElementById('btn-stock-ok');
+    const btnStockCancel = document.getElementById('btn-stock-cancel');
+    let pendingStockItem = null;
+
+    if (btnStockOk) {
+        btnStockOk.addEventListener('click', () => {
+            if (pendingStockItem) {
+                const { product, maxStock } = pendingStockItem;
+                const existingItem = cart.find(item => item.id == product.id);
+                if (existingItem) {
+                    existingItem.quantity = maxStock;
+                } else {
+                    cart.push({ ...product, quantity: maxStock });
+                }
+                saveCart();
+                updateCartUI();
+            }
+            stockAlertModal.classList.add('hidden');
+            pendingStockItem = null;
+        });
+    }
+
+    if (btnStockCancel) {
+        btnStockCancel.addEventListener('click', () => {
+            cart = [];
+            saveCart();
+            updateCartUI();
+            cartSidebar.classList.remove('open');
+            stockAlertModal.classList.add('hidden');
+            pendingStockItem = null;
+            openCategoryView('All');
+        });
+    }
+
     // Open/Close Cart
     cartBtn.addEventListener('click', () => {
         cartSidebar.classList.add('open');
@@ -179,7 +221,17 @@ document.addEventListener("DOMContentLoaded", () => {
         const product = allProducts.find(p => p.id == productId);
         if (!product) return;
 
+        const maxStock = parseInt(product.stock) || 0;
         const existingItem = cart.find(item => item.id == productId);
+        const currentQty = existingItem ? existingItem.quantity : 0;
+
+        if (currentQty + 1 > maxStock) {
+            stockAlertText.textContent = `Only ${maxStock} available. You can buy ${maxStock} ${product.name}. Are you ok with it or not?`;
+            pendingStockItem = { product, maxStock };
+            stockAlertModal.classList.remove('hidden');
+            return;
+        }
+
         if (existingItem) {
             existingItem.quantity += 1;
         } else {
@@ -194,12 +246,24 @@ document.addEventListener("DOMContentLoaded", () => {
         cartBtn.classList.add('pulse');
         
         updateCartUI();
+        showToast(`${product.name} added to cart!`);
     };
 
     window.changeQuantity = (productId, delta) => {
         const itemIndex = cart.findIndex(item => item.id == productId);
         if (itemIndex > -1) {
-            cart[itemIndex].quantity += delta;
+            const product = allProducts.find(p => p.id == productId);
+            const maxStock = parseInt(product.stock) || 0;
+            const newQty = cart[itemIndex].quantity + delta;
+
+            if (delta > 0 && newQty > maxStock) {
+                stockAlertText.textContent = `Only ${maxStock} available. You can buy ${maxStock} ${product.name}. Are you ok with it or not?`;
+                pendingStockItem = { product, maxStock };
+                stockAlertModal.classList.remove('hidden');
+                return;
+            }
+
+            cart[itemIndex].quantity = newQty;
             if (cart[itemIndex].quantity <= 0) {
                 cart.splice(itemIndex, 1);
             }
@@ -328,4 +392,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Initial fetch
     fetchProducts();
+
+    // --- Toast Notification System ---
+    const toastContainer = document.createElement('div');
+    toastContainer.className = 'toast-container';
+    document.body.appendChild(toastContainer);
+
+    window.showToast = (message) => {
+        const toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.innerHTML = `<span class="toast-icon">✓</span> <span>${message}</span>`;
+        toastContainer.appendChild(toast);
+
+        // Animate in
+        setTimeout(() => toast.classList.add('show'), 10);
+
+        // Remove after 3 seconds
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 400); // Wait for transition
+        }, 3000);
+    };
 });

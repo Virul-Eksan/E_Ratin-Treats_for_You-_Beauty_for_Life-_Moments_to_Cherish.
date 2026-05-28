@@ -13,7 +13,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ඒ රtin (E RATIN) - Treats, Beauty, Moments</title>
-    <link rel="stylesheet" href="style.css?v=6">
+    <link rel="stylesheet" href="style.css?v=7">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
 </head>
@@ -180,6 +180,18 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
         </div>
     </div>
 
+    <!-- Stock Alert Modal -->
+    <div id="stock-alert-modal" class="modal-overlay hidden">
+        <div class="checkout-modal-content" style="text-align: center; max-width: 400px; padding: 30px;">
+            <h2 style="color: var(--primary-pink); margin-bottom: 20px;">Stock Limit Reached</h2>
+            <p id="stock-alert-text" style="margin-bottom: 25px; line-height: 1.6;"></p>
+            <div style="display: flex; gap: 15px; justify-content: center;">
+                <button id="btn-stock-cancel" class="btn-cancel" style="padding: 10px 20px; border-radius: 8px; flex: 1; background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); cursor: pointer;">Not OK</button>
+                <button id="btn-stock-ok" class="btn-confirm" style="padding: 10px 20px; border-radius: 8px; flex: 1; background: var(--primary-gold); color: white; border: none; cursor: pointer; font-weight: 600;">OK</button>
+            </div>
+        </div>
+    </div>
+
     <footer>
         <p>ඒ රtin (E RATIN) &copy; 2026 | <a href="admin.php" style="color:var(--dark-gold); text-decoration:none;">Admin Access</a></p>
     </footer>
@@ -187,6 +199,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
     <script>
         const isLoggedIn = <?php echo isset($_SESSION['customer_id']) ? 'true' : 'false'; ?>;
     </script>
-    <script src="script.js?v=5"></script>
+    <script src="script.js?v=8"></script>
 </body>
 </html>

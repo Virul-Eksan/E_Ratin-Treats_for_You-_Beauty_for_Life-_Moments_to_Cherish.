@@ -104,16 +104,59 @@ $orders = $stmt_orders->fetchAll(PDO::FETCH_ASSOC);
         .avatar-upload {
             text-align: center;
             margin-bottom: 30px;
+            position: relative;
+            padding: 20px;
+            border: 2px dashed transparent;
+            border-radius: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .avatar-upload.dragover {
+            border-color: var(--primary-gold);
+            background: rgba(196, 138, 90, 0.05);
+        }
+
+        .avatar-wrapper {
+            position: relative;
+            width: 150px;
+            height: 150px;
+            margin: 0 auto;
+            border-radius: 50%;
+            overflow: hidden;
+            border: 4px solid var(--primary-gold);
+            box-shadow: 0 5px 15px rgba(196, 138, 90, 0.3);
+            cursor: pointer;
         }
 
         .avatar-preview {
-            width: 150px;
-            height: 150px;
-            border-radius: 50%;
+            width: 100%;
+            height: 100%;
             object-fit: cover;
-            border: 4px solid var(--primary-gold);
-            margin-bottom: 15px;
-            box-shadow: 0 5px 15px rgba(196, 138, 90, 0.3);
+        }
+
+        .edit-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.6);
+            color: #fff;
+            padding: 8px 0;
+            font-size: 0.9rem;
+            font-weight: 600;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .avatar-wrapper:hover .edit-overlay {
+            opacity: 1;
+        }
+
+        .drag-text {
+            margin-top: 15px;
+            font-size: 0.9rem;
+            color: var(--light-text);
+            font-weight: 500;
         }
 
         .form-group {
@@ -245,13 +288,18 @@ $orders = $stmt_orders->fetchAll(PDO::FETCH_ASSOC);
             <?php if($error_msg): ?><div class="alert alert-danger"><?= htmlspecialchars($error_msg) ?></div><?php endif; ?>
 
             <form action="" method="POST" enctype="multipart/form-data">
-                <div class="avatar-upload">
+                <div class="avatar-upload" id="dropZone">
                     <?php 
                         $avatar_url = !empty($customer['profile_image']) ? htmlspecialchars($customer['profile_image']) : 'https://ui-avatars.com/api/?name=' . urlencode($customer['name']) . '&background=c48a5a&color=fff&size=150';
                     ?>
-                    <img src="<?= $avatar_url ?>" alt="Profile" class="avatar-preview" id="avatarPreview">
-                    <br><br>
-                    <input type="file" name="profile_image" accept="image/*" onchange="previewImage(this)">
+                    <div class="avatar-wrapper" onclick="document.getElementById('profileImageInput').click()">
+                        <img src="<?= $avatar_url ?>" alt="Profile" class="avatar-preview" id="avatarPreview">
+                        <div class="edit-overlay">
+                            <span>Edit Photo</span>
+                        </div>
+                    </div>
+                    <div class="drag-text">Drag & Drop photo here, or click to choose</div>
+                    <input type="file" name="profile_image" id="profileImageInput" accept="image/*" onchange="previewImage(this)" style="display: none;">
                 </div>
 
                 <div class="form-group">
@@ -343,6 +391,29 @@ $orders = $stmt_orders->fetchAll(PDO::FETCH_ASSOC);
                 reader.readAsDataURL(input.files[0]);
             }
         }
+
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('profileImageInput');
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            
+            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                fileInput.files = e.dataTransfer.files;
+                previewImage(fileInput);
+            }
+        });
     </script>
 </body>
 </html>

@@ -925,3 +925,43 @@ footer a:hover {
     color: white;
     border-color: var(--rose-gold);
 }
+
+/* --- Toast Notification Styles --- */
+.toast-container {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 9999;
+    pointer-events: none;
+}
+
+.toast {
+    background: rgba(255, 248, 244, 0.95);
+    backdrop-filter: blur(8px);
+    border-left: 4px solid var(--primary-gold);
+    border-radius: 8px;
+    padding: 12px 20px;
+    box-shadow: 0 4px 15px rgba(75, 46, 43, 0.15);
+    color: var(--text-color);
+    font-size: 0.95rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transform: translateX(-120%);
+    opacity: 0;
+    transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55), opacity 0.4s;
+}
+
+.toast.show {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+.toast-icon {
+    color: var(--primary-gold);
+    font-size: 1.2rem;
+}

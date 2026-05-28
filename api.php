@@ -43,6 +43,14 @@ if ($action === 'create_order') {
                 $data['total_amount']
             ]);
             
+            // Decrease stock for purchased items
+            if (isset($data['cart_details']) && is_array($data['cart_details'])) {
+                $stock_stmt = $pdo->prepare("UPDATE products SET stock = GREATEST(stock - ?, 0) WHERE id = ?");
+                foreach ($data['cart_details'] as $item) {
+                    $stock_stmt->execute([$item['quantity'], $item['id']]);
+                }
+            }
+            
             // Fetch template and SMTP config from DB
             $stmt_settings = $pdo->query("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('email_subject', 'email_body', 'smtp_username', 'smtp_password')");
             $settings_rows = $stmt_settings->fetchAll(PDO::FETCH_KEY_PAIR);

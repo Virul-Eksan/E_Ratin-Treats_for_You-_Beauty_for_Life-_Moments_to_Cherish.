@@ -23,10 +23,14 @@ try {
         category VARCHAR(100) NOT NULL,
         image_path VARCHAR(255) NOT NULL,
         price DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+        stock INT NOT NULL DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
     
     $pdo->exec($sql);
+    
+    // Ensure existing products table is updated with stock column
+    try { $pdo->exec("ALTER TABLE products ADD COLUMN stock INT NOT NULL DEFAULT 0"); } catch (PDOException $e) {}
     
     // Create customers table
     $sql_customers = "CREATE TABLE IF NOT EXISTS customers (

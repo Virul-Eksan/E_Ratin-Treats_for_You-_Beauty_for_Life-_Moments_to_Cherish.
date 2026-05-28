@@ -110,11 +110,23 @@ if (isset($_GET['mark_pending'])) {
     }
 }
 
+// Handle Update Stock
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_stock'])) {
+    $id = $_POST['update_stock_id'];
+    $stock = $_POST['new_stock'];
+    $stmt = $pdo->prepare("UPDATE products SET stock = ? WHERE id = ?");
+    if ($stmt->execute([$stock, $id])) {
+        $message = "Stock updated successfully.";
+        $active_tab = 'view-stock';
+    }
+}
+
 // Handle Add Product
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_product'])) {
     $name = $_POST['name'];
     $category = $_POST['category'];
     $price = $_POST['price'];
+    $stock = $_POST['stock'];
     $description = $_POST['description'];
     
     // Image Upload
@@ -135,8 +147,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_product'])) {
     }
     
     if ($imagePath) {
-        $stmt = $pdo->prepare("INSERT INTO products (name, description, category, price, image_path) VALUES (?, ?, ?, ?, ?)");
-        if ($stmt->execute([$name, $description, $category, $price, $imagePath])) {
+        $stmt = $pdo->prepare("INSERT INTO products (name, description, category, price, stock, image_path) VALUES (?, ?, ?, ?, ?, ?)");
+        if ($stmt->execute([$name, $description, $category, $price, $stock, $imagePath])) {
             header("Location: admin.php?success=1");
             exit();
         } else {
@@ -244,6 +256,10 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                         <input type="number" step="0.01" name="price" required placeholder="9.99">
                     </div>
                     <div class="form-group">
+                        <label>Stock Count</label>
+                        <input type="number" name="stock" required min="0" placeholder="e.g. 50">
+                    </div>
+                    <div class="form-group">
                         <label>Product Image</label>
                         <input type="file" name="image" accept="image/*" required>
                     </div>
@@ -266,6 +282,7 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                                 <th>Name</th>
                                 <th>Category</th>
                                 <th>Price</th>
+                                <th>Stock</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -277,12 +294,19 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                                 <td><span class="badge <?php echo strtolower($p['category']); ?>"><?php echo htmlspecialchars($p['category']); ?></span></td>
                                 <td>$<?php echo htmlspecialchars($p['price']); ?></td>
                                 <td>
+                                    <form action="admin.php" method="POST" style="display: flex; gap: 5px; align-items: center; justify-content: center;">
+                                        <input type="hidden" name="update_stock_id" value="<?php echo $p['id']; ?>">
+                                        <input type="number" name="new_stock" value="<?php echo htmlspecialchars($p['stock'] ?? 0); ?>" min="0" style="width: 60px; padding: 4px; border-radius: 4px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.2); color: white;">
+                                        <button type="submit" name="update_stock" class="btn-submit" style="padding: 4px 10px; font-size: 0.8rem; border-radius: 4px;">Save</button>
+                                    </form>
+                                </td>
+                                <td>
                                     <a href="admin.php?delete=<?php echo $p['id']; ?>" class="btn-delete" onclick="confirmDeletion(event, this.href, 'product');">Delete</a>
                                 </td>
                             </tr>
                             <?php endforeach; ?>
                             <?php if(empty($products)): ?>
-                                <tr><td colspan="5">No products found.</td></tr>
+                                <tr><td colspan="6">No products found.</td></tr>
                             <?php endif; ?>
                         </tbody>
                     </table>
