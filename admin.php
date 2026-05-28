@@ -6,10 +6,14 @@ $order_message = '';
 $active_tab = 'view-stock';
 $active_sub_tab = 'pending';
 
+// Handle success messages
 if (isset($_GET['success'])) {
     if ($_GET['success'] === 'email') {
         $message = "Email template updated successfully.";
         $active_tab = 'view-email';
+    } elseif ($_GET['success'] === 'stock') {
+        $message = "Stock updated successfully.";
+        $active_tab = 'view-stock';
     } else {
         $message = "Product added successfully.";
         $active_tab = 'view-stock';
@@ -116,12 +120,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_stock'])) {
     $stock = $_POST['new_stock'];
     $stmt = $pdo->prepare("UPDATE products SET stock = ? WHERE id = ?");
     if ($stmt->execute([$stock, $id])) {
-        $message = "Stock updated successfully.";
-        $active_tab = 'view-stock';
+        // Redirect to avoid form resubmission on refresh
+        header("Location: admin.php?success=stock&id={$id}");
+        exit();
     }
 }
 
 // Handle Add Product
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_product'])) {
     $name = $_POST['name'];
     $category = $_POST['category'];
