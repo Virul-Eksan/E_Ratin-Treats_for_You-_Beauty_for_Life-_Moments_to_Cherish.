@@ -243,6 +243,16 @@ foreach ($customers_list as $cust) {
     }
 }
 
+// Group orders by customer ID for the customer view
+$stmt_orders_all = $pdo->query("SELECT * FROM orders ORDER BY created_at DESC");
+$all_orders = $stmt_orders_all->fetchAll();
+$orders_by_customer = [];
+foreach ($all_orders as $o) {
+    if ($o['customer_id']) {
+        $orders_by_customer[$o['customer_id']][] = $o;
+    }
+}
+
     // Ensure messages table exists (create if missing)
     $createMessagesTableSql = "CREATE TABLE IF NOT EXISTS messages (\n        id INT AUTO_INCREMENT PRIMARY KEY,\n        customer_id INT NOT NULL,\n        subject VARCHAR(255) NOT NULL,\n        body TEXT,\n        is_read TINYINT(1) DEFAULT 0,\n        created_at DATETIME DEFAULT CURRENT_TIMESTAMP\n    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
     $pdo->exec($createMessagesTableSql);
@@ -279,33 +289,12 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                 <a href="#" class="nav-link <?php echo $active_tab == 'view-customers' ? 'active' : ''; ?>" data-target="view-customers">Customers</a>
                 <a href="#" class="nav-link <?php echo $active_tab == 'view-email' ? 'active' : ''; ?>" data-target="view-email">Email Template</a>
             </nav>
+        <a href="index.php" class="btn-view" target="_blank">View Live Site</a>
         <div class="notification-wrapper" style="position: relative; display: inline-block; margin-left: 20px;">
             <span id="notificationIcon" class="notification-icon" style="cursor: pointer; font-size: 1.5rem;" title="Notifications">🔔</span>
-            <span id="notifCount" class="notif-count" style="position: absolute; top: -5px; right: -10px; background: #ef4444; color: #fff; border-radius: 50%; padding: 2px 6px; font-size: 0.8rem;"><?php echo $new_orders_count + $new_messages_count; ?></span>
-            <div id="notificationPanel" class="notification-panel hidden" style="position: absolute; right: 0; top: 30px; background: var(--bg-dark); border: 1px solid var(--glass-border); border-radius: 8px; width: 250px; max-height: 300px; overflow-y: auto; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
-                <h4 style="margin: 10px; color: #34d399;">New Orders</h4>
-                <ul style="list-style:none; padding:0 10px; margin:0;">
-                    <?php foreach($pending_orders as $order): ?>
-                        <li style="background:#d1fae5; padding:5px; margin:4px 0; border-radius:4px; font-size:0.85rem; color:#065f46;">
-                            #<?php echo $order['id']; ?> – <?php echo htmlspecialchars(date('M d, Y', strtotime($order['created_at']))); ?>
-                        </li>
-                    <?php endforeach; ?>
-                </ul>
-                <h4 style="margin: 10px; color: #60a5fa;">Customer Messages</h4>
-                <ul style="list-style:none; padding:0 10px; margin:0;">
-                    <?php
-                    $stmt_msgs = $pdo->query("SELECT * FROM messages WHERE is_read = 0 ORDER BY created_at DESC LIMIT 5");
-                    $messages = $stmt_msgs->fetchAll();
-                    foreach($messages as $msg): ?>
-                        <li style="background:#dbeafe; padding:5px; margin:4px 0; border-radius:4px; font-size:0.85rem; color:#1e40af;">
-                            <?php echo htmlspecialchars($msg['subject'] ?? 'Message'); ?>
-                        </li>
-                    <?php endforeach; ?>
-                </ul>
-            </div>
+            <span id="notifCount" class="notif-count" style="position: absolute; top: -5px; right: -10px; background: #ef4444; color: #fff; border-radius: 50%; padding: 2px 6px; font-size: 0.8rem; pointer-events: none;"><?php echo $new_orders_count + $new_messages_count; ?></span>
         </div>
-            <a href="index.php" class="btn-view" target="_blank">View Live Site</a>
-        </header>
+    </header>
 
         <?php if ($message): ?>
             <div class="alert" id="success-alert"><?php echo htmlspecialchars($message); ?></div>
@@ -479,7 +468,7 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                                 }
                             }
                         ?>
-                        <tr>
+                        <tr data-order-id="<?php echo $o['id']; ?>">
                             <td>#<?php echo htmlspecialchars($o['id']); ?> <br> <span class="badge pending" style="margin-top: 5px; display: inline-block;">Pending</span></td>
                             <td><?php echo htmlspecialchars(date('M d, Y H:i', strtotime($o['created_at']))); ?></td>
                             <td><?php echo htmlspecialchars($o['full_name']); ?></td>
@@ -1243,16 +1232,119 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                     const targetId = link.getAttribute('data-target');
                     document.getElementById(targetId).classList.remove('hidden');
                 });
+            });
+
+            // Notification Sidebar Toggle Logic (Improved for touch responsiveness)
+            const notifWrapper = document.querySelector('.notification-wrapper');
+            const notifPanel = document.getElementById('notificationPanel');
+            const closeNotifBtn = document.getElementById('closeNotifPanel');
+
+            if (notifWrapper && notifPanel) {
+                notifWrapper.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    notifPanel.classList.toggle('hidden');
                 });
-    // Notification toggle handler
-    const notifIcon = document.getElementById('notificationIcon');
-    const notifPanel = document.getElementById('notificationPanel');
-    if (notifIcon) {
-        notifIcon.addEventListener('click', () => {
-            notifPanel.classList.toggle('hidden');
-        });
-    }
+            }
+
+            // Notification Item Click Logic: Navigate, Clear Search, and Scroll
+            const orderNotifItems = document.querySelectorAll('.order-notif-item');
+            orderNotifItems.forEach(item => {
+                item.addEventListener('click', () => {
+                    const orderId = item.getAttribute('data-order-id');
+                    if (!orderId) return;
+
+                    // 1. Switch to Orders Tab
+                    const ordersNavLink = document.querySelector('.nav-link[data-target="view-orders"]');
+                    if (ordersNavLink) ordersNavLink.click();
+
+                    // 2. Switch to Pending Sub-tab
+                    const pendingTabBtn = document.querySelector('.order-tab-btn[data-target="pending-orders-table"]');
+                    if (pendingTabBtn) pendingTabBtn.click();
+
+                    // 3. Clear search filter to ensure row is visible
+                    const orderSearchInput = document.getElementById('orderSearchInput');
+                    if (orderSearchInput) {
+                        orderSearchInput.value = '';
+                        orderSearchInput.dispatchEvent(new Event('input'));
+                    }
+
+                    // 4. Scroll to the specific order row
+                    setTimeout(() => {
+                        const targetRow = document.querySelector(`#pending-orders-table tr[data-order-id="${orderId}"]`);
+                        if (targetRow) {
+                            targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            // Highlight effect to help identify the order
+                            targetRow.style.backgroundColor = 'rgba(52, 211, 153, 0.4)';
+                            setTimeout(() => targetRow.style.backgroundColor = '', 2000);
+                        }
+                    }, 350); // Delay to allow tab switching animation
+
+                    // 5. Close notification panel
+                    if (notifPanel) notifPanel.classList.add('hidden');
+                });
+            });
+
+            if (closeNotifBtn && notifPanel) {
+                closeNotifBtn.addEventListener('click', () => {
+                    notifPanel.classList.add('hidden');
+                });
+            }
+
+            // Close notification panel when clicking outside
+            document.addEventListener('click', (e) => {
+                if (notifPanel && !notifPanel.contains(e.target) && !notifWrapper.contains(e.target)) {
+                    notifPanel.classList.add('hidden');
+                }
+            });
         });
     </script>
+
+    <!-- Floating Notification Sidebar (Separate Panel) -->
+    <div id="notificationPanel" class="notification-panel hidden" style="position: fixed; top: 0; right: 0; height: 100vh; width: 350px; background: rgba(15, 23, 42, 0.98); backdrop-filter: blur(20px); border-left: 1px solid rgba(255, 255, 255, 0.1); z-index: 10000; padding: 30px; box-shadow: -10px 0 30px rgba(0,0,0,0.6); color: white; overflow-y: auto;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:25px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px;">
+            <h3 style="margin:0; color:#34d399; font-size: 1.2rem;">Notifications</h3>
+            <button id="closeNotifPanel" style="background:none; border:none; color:#fff; font-size:1.8rem; cursor:pointer; line-height:1;">&times;</button>
+        </div>
+        
+        <div style="margin-bottom: 30px;">
+            <h4 style="margin:0 0 15px; color:#34d399; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px;">New Orders</h4>
+            <ul style="list-style:none; padding:0; margin:0;">
+                <?php foreach($pending_orders as $order): ?>
+                    <li class="order-notif-item" data-order-id="<?php echo $order['id']; ?>" style="background:rgba(52, 211, 153, 0.08); border: 1px solid rgba(52, 211, 153, 0.15); padding:12px; margin:10px 0; border-radius:10px; font-size:0.9rem; color:#a7f3d0; cursor:pointer; transition: 0.2s;">
+                        <div style="display:flex; justify-content:space-between; margin-bottom: 4px;">
+                            <strong>Order #<?php echo $order['id']; ?></strong>
+                            <span style="color:#34d399; font-size: 0.7rem;">PENDING</span>
+                        </div>
+                        <span style="font-size: 0.8rem; opacity: 0.7;"><?php echo htmlspecialchars(date('M d, Y h:i A', strtotime($order['created_at']))); ?></span>
+                    </li>
+                <?php endforeach; ?>
+                <?php if(empty($pending_orders)): ?>
+                    <li style="color: #94a3b8; font-size: 0.9rem; padding: 10px; background: rgba(255,255,255,0.03); border-radius: 8px; text-align: center;">No new orders</li>
+                <?php endif; ?>
+            </ul>
+        </div>
+
+        <div>
+            <h4 style="margin:0 0 15px; color:#60a5fa; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px;">Unread Messages</h4>
+            <ul style="list-style:none; padding:0; margin:0;">
+                <?php
+                $stmt_msgs = $pdo->query("SELECT * FROM messages WHERE is_read = 0 ORDER BY created_at DESC LIMIT 5");
+                $messages = $stmt_msgs->fetchAll();
+                foreach($messages as $msg): ?>
+                    <li style="background:rgba(96, 165, 250, 0.08); border: 1px solid rgba(96, 165, 250, 0.15); padding:12px; margin:10px 0; border-radius:10px; font-size:0.9rem; color:#bfdbfe;">
+                        <strong><?php echo htmlspecialchars($msg['subject'] ?? 'Message'); ?></strong><br>
+                        <span style="font-size: 0.8rem; opacity: 0.7;"><?php echo htmlspecialchars(date('M d, Y', strtotime($msg['created_at']))); ?></span>
+                    </li>
+                <?php endforeach; ?>
+                <?php if(empty($messages)): ?>
+                    <li style="color: #94a3b8; font-size: 0.9rem; padding: 10px; background: rgba(255,255,255,0.03); border-radius: 8px; text-align: center;">No unread messages</li>
+                <?php endif; ?>
+            </ul>
+        </div>
+    </div>
+
+    <style>
+        .notification-panel.hidden { display: none !important; }
+    </style>
 </body>
 </html>
