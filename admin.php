@@ -248,6 +248,11 @@ $orders_by_customer = [];
 foreach ($stmt_orders_by_customer->fetchAll() as $order) {
     $orders_by_customer[$order['customer_id']][] = $order;
 }
+// New notifications: count of unread customer messages
+$stmt_new_messages = $pdo->query("SELECT COUNT(*) FROM messages WHERE is_read = 0");
+$new_messages_count = $stmt_new_messages->fetchColumn();
+// Count of new orders (pending)
+$new_orders_count = count($pending_orders);
 
 // Fetch Email Settings
 $stmt_settings = $pdo->query("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('email_subject', 'email_body', 'smtp_username', 'smtp_password')");
@@ -275,6 +280,31 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                 <a href="#" class="nav-link <?php echo $active_tab == 'view-customers' ? 'active' : ''; ?>" data-target="view-customers">Customers</a>
                 <a href="#" class="nav-link <?php echo $active_tab == 'view-email' ? 'active' : ''; ?>" data-target="view-email">Email Template</a>
             </nav>
+        <div class="notification-wrapper" style="position: relative; display: inline-block; margin-left: 20px;">
+            <span id="notificationIcon" class="notification-icon" style="cursor: pointer; font-size: 1.5rem;" title="Notifications">🔔</span>
+            <span id="notifCount" class="notif-count" style="position: absolute; top: -5px; right: -10px; background: #ef4444; color: #fff; border-radius: 50%; padding: 2px 6px; font-size: 0.8rem;"><?php echo $new_orders_count + $new_messages_count; ?></span>
+            <div id="notificationPanel" class="notification-panel hidden" style="position: absolute; right: 0; top: 30px; background: var(--bg-dark); border: 1px solid var(--glass-border); border-radius: 8px; width: 250px; max-height: 300px; overflow-y: auto; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+                <h4 style="margin: 10px; color: #34d399;">New Orders</h4>
+                <ul style="list-style:none; padding:0 10px; margin:0;">
+                    <?php foreach($pending_orders as $order): ?>
+                        <li style="background:#d1fae5; padding:5px; margin:4px 0; border-radius:4px; font-size:0.85rem; color:#065f46;">
+                            #<?php echo $order['id']; ?> – <?php echo htmlspecialchars(date('M d, Y', strtotime($order['created_at']))); ?>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+                <h4 style="margin: 10px; color: #60a5fa;">Customer Messages</h4>
+                <ul style="list-style:none; padding:0 10px; margin:0;">
+                    <?php
+                    $stmt_msgs = $pdo->query("SELECT * FROM messages WHERE is_read = 0 ORDER BY created_at DESC LIMIT 5");
+                    $messages = $stmt_msgs->fetchAll();
+                    foreach($messages as $msg): ?>
+                        <li style="background:#dbeafe; padding:5px; margin:4px 0; border-radius:4px; font-size:0.85rem; color:#1e40af;">
+                            <?php echo htmlspecialchars($msg['subject'] ?? 'Message'); ?>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        </div>
             <a href="index.php" class="btn-view" target="_blank">View Live Site</a>
         </header>
 
@@ -1214,7 +1244,15 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                     const targetId = link.getAttribute('data-target');
                     document.getElementById(targetId).classList.remove('hidden');
                 });
-            });
+                });
+    // Notification toggle handler
+    const notifIcon = document.getElementById('notificationIcon');
+    const notifPanel = document.getElementById('notificationPanel');
+    if (notifIcon) {
+        notifIcon.addEventListener('click', () => {
+            notifPanel.classList.toggle('hidden');
+        });
+    }
         });
     </script>
 </body>
