@@ -17,6 +17,14 @@ if (isset($_GET['success'])) {
     } elseif ($_GET['success'] === 'price') {
         $message = "Price updated successfully.";
         $active_tab = 'view-stock';
+    } elseif ($_GET['success'] === 'blacklist') {
+        $message = "Customer blacklisted successfully.";
+        $active_tab = 'view-customers';
+        $active_sub_tab = 'blacklisted';
+    } elseif ($_GET['success'] === 'unblacklist') {
+        $message = "Customer removed from blacklist.";
+        $active_tab = 'view-customers';
+        $active_sub_tab = 'all';
     } else {
         $message = "Product added successfully.";
         $active_tab = 'view-stock';
@@ -141,6 +149,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_price'])) {
     }
 }
 
+// Handle Blacklist Customer
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_blacklist'])) {
+    $cust_id = $_POST['blacklist_customer_id'];
+    $reason = $_POST['blacklist_reason'];
+    $stmt = $pdo->prepare("UPDATE customers SET is_blacklisted = 1, blacklist_reason = ? WHERE id = ?");
+    if ($stmt->execute([$reason, $cust_id])) {
+        header("Location: admin.php?success=blacklist");
+        exit();
+    }
+}
+
+// Handle Un-blacklist Customer
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_unblacklist'])) {
+    $cust_id = $_POST['unblacklist_customer_id'];
+    $stmt = $pdo->prepare("UPDATE customers SET is_blacklisted = 0, blacklist_reason = NULL WHERE id = ?");
+    if ($stmt->execute([$cust_id])) {
+        header("Location: admin.php?success=unblacklist");
+        exit();
+    }
+}
+
 // Handle Add Product
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_product'])) {
@@ -203,6 +232,16 @@ $deleted_orders = $stmt_deleted_orders->fetchAll();
 // Fetch all customers and their orders
 $stmt_customers = $pdo->query("SELECT * FROM customers ORDER BY id DESC");
 $customers_list = $stmt_customers->fetchAll();
+
+$active_customers = [];
+$blacklisted_customers = [];
+foreach ($customers_list as $cust) {
+    if (isset($cust['is_blacklisted']) && $cust['is_blacklisted'] == 1) {
+        $blacklisted_customers[] = $cust;
+    } else {
+        $active_customers[] = $cust;
+    }
+}
 
 $stmt_orders_by_customer = $pdo->query("SELECT * FROM orders WHERE customer_id IS NOT NULL ORDER BY id DESC");
 $orders_by_customer = [];
@@ -652,11 +691,21 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
         <!-- Customers View -->
         <div id="view-customers" class="admin-view <?php echo $active_tab == 'view-customers' ? '' : 'hidden'; ?>">
             <div class="card manage-customers-card">
-                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--glass-border); margin-bottom: 25px; padding-bottom: 15px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--glass-border); margin-bottom: 25px; padding-bottom: 15px; flex-wrap: wrap; gap: 15px;">
                     <h3 style="border-bottom: none; margin-bottom: 0; padding-bottom: 0;">Registered Customers</h3>
-                    <input type="text" id="customerSearchInput" placeholder="🔍 Search name, email..." style="padding: 8px 15px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.2); color: white; outline: none; min-width: 250px; font-family: inherit;">
+                    <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                        <input type="text" id="customerSearchInput" placeholder="🔍 Search name, email..." style="padding: 8px 15px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.2); color: white; outline: none; min-width: 250px; font-family: inherit;">
+                    </div>
                 </div>
-                <div class="table-responsive">
+
+                <!-- Sub Tabs for Customers -->
+                <div class="customer-sub-tabs" style="display: flex; gap: 10px; margin-bottom: 20px;">
+                    <button class="btn-view customer-tab-btn active" data-target="active-customers-table" style="padding: 6px 15px; border-radius: 20px; font-size: 0.85rem; border: none; background: rgba(59, 130, 246, 0.2); color: #60a5fa;">All Customers (<?php echo count($active_customers); ?>)</button>
+                    <button class="btn-view customer-tab-btn" data-target="blacklisted-customers-table" style="padding: 6px 15px; border-radius: 20px; font-size: 0.85rem; border: none;">Blacklisted Base (<?php echo count($blacklisted_customers); ?>)</button>
+                </div>
+
+                <!-- Active Customers Table -->
+                <div id="active-customers-table" class="table-responsive customer-table-view">
                     <table id="customers-table">
                         <thead>
                             <tr>
@@ -668,7 +717,7 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach($customers_list as $cust): 
+                            <?php foreach($active_customers as $cust): 
                                 $avatar_url = !empty($cust['profile_image']) ? 'CustomerData/' . htmlspecialchars($cust['profile_image']) : 'https://ui-avatars.com/api/?name=' . urlencode($cust['name']) . '&background=c48a5a&color=fff&rounded=true';
                             ?>
                             <tr>
@@ -685,7 +734,9 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                                                 'phone' => $cust['phone'] ?? 'N/A',
                                                 'address' => $cust['address'] ?? 'N/A',
                                                 'avatar' => $avatar_url,
-                                                'joined' => date('M d, Y', strtotime($cust['created_at']))
+                                                'joined' => date('M d, Y', strtotime($cust['created_at'])),
+                                                'is_blacklisted' => 0,
+                                                'blacklist_reason' => ''
                                             ]), ENT_QUOTES, 'UTF-8'); ?>'
                                             data-orders='<?php echo htmlspecialchars(json_encode($orders_by_customer[$cust['id']] ?? []), ENT_QUOTES, 'UTF-8'); ?>'
                                             style="padding: 6px 15px; border-radius: 8px; font-size: 0.85rem; cursor: pointer;">
@@ -694,8 +745,58 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                                 </td>
                             </tr>
                             <?php endforeach; ?>
-                            <?php if(empty($customers_list)): ?>
+                            <?php if(empty($active_customers)): ?>
                                 <tr><td colspan="5" style="text-align: center;">No registered customers found.</td></tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Blacklisted Customers Table -->
+                <div id="blacklisted-customers-table" class="table-responsive customer-table-view hidden">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Avatar</th>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Blacklist Reason</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach($blacklisted_customers as $cust): 
+                                $avatar_url = !empty($cust['profile_image']) ? 'CustomerData/' . htmlspecialchars($cust['profile_image']) : 'https://ui-avatars.com/api/?name=' . urlencode($cust['name']) . '&background=ef4444&color=fff&rounded=true';
+                            ?>
+                            <tr style="background: rgba(239, 68, 68, 0.05);">
+                                <td><img src="<?php echo $avatar_url; ?>" alt="Profile" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #ef4444;"></td>
+                                <td style="font-weight: 600; color: #fca5a5;"><?php echo htmlspecialchars($cust['name']); ?> <span style="font-size:0.8rem; color:#ef4444;">🚫</span></td>
+                                <td><a href="mailto:<?php echo htmlspecialchars($cust['email']); ?>" style="color:var(--text-color)"><?php echo htmlspecialchars($cust['email']); ?></a></td>
+                                <td style="font-size: 0.9rem; color: #fca5a5; max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="<?php echo htmlspecialchars($cust['blacklist_reason'] ?? 'No reason provided'); ?>">
+                                    <?php echo htmlspecialchars($cust['blacklist_reason'] ?? 'No reason provided'); ?>
+                                </td>
+                                <td>
+                                    <button class="btn-view btn-view-customer" 
+                                            data-customer='<?php echo htmlspecialchars(json_encode([
+                                                'id' => $cust['id'],
+                                                'name' => $cust['name'],
+                                                'email' => $cust['email'],
+                                                'phone' => $cust['phone'] ?? 'N/A',
+                                                'address' => $cust['address'] ?? 'N/A',
+                                                'avatar' => $avatar_url,
+                                                'joined' => date('M d, Y', strtotime($cust['created_at'])),
+                                                'is_blacklisted' => 1,
+                                                'blacklist_reason' => $cust['blacklist_reason'] ?? ''
+                                            ]), ENT_QUOTES, 'UTF-8'); ?>'
+                                            data-orders='<?php echo htmlspecialchars(json_encode($orders_by_customer[$cust['id']] ?? []), ENT_QUOTES, 'UTF-8'); ?>'
+                                            style="padding: 6px 15px; border-radius: 8px; font-size: 0.85rem; cursor: pointer; border-color: rgba(239,68,68,0.4); color: #fca5a5;">
+                                        View Details
+                                    </button>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                            <?php if(empty($blacklisted_customers)): ?>
+                                <tr><td colspan="5" style="text-align: center; color: #94a3b8; padding: 20px;">No blacklisted customers found.</td></tr>
                             <?php endif; ?>
                         </tbody>
                     </table>
@@ -729,7 +830,10 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                     <img id="cp-avatar" src="" alt="Avatar" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 2px solid var(--primary-gold);">
                 </div>
                 <div class="customer-details" style="flex-grow: 1;">
-                    <h2 id="cp-name" style="margin-top: 0; margin-bottom: 10px; color: var(--primary-pink);"></h2>
+                    <h2 style="margin-top: 0; margin-bottom: 10px; color: var(--primary-pink); display: flex; align-items: center; gap: 12px;">
+                        <span id="cp-name"></span>
+                        <span id="cp-blacklist-symbol" style="cursor: pointer; font-size: 1.2rem; user-select: none;" title="Blacklist Customer">🚫</span>
+                    </h2>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; font-size: 0.95rem;">
                         <p><strong>Email:</strong> <span id="cp-email"></span></p>
                         <p><strong>Phone:</strong> <span id="cp-phone"></span></p>
@@ -737,6 +841,35 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                         <p style="grid-column: 1 / -1;"><strong>Address:</strong> <span id="cp-address"></span></p>
                     </div>
                 </div>
+            </div>
+
+            <!-- Blacklist Form (Toggled by clicking the 🚫 symbol) -->
+            <div id="blacklist-form-container" class="hidden" style="margin-bottom: 25px; padding: 20px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 12px; text-align: left;">
+                <h4 style="margin-top: 0; margin-bottom: 12px; color: #f87171; display: flex; align-items: center; gap: 8px; font-size: 1.1rem;">🚫 Blacklist Customer</h4>
+                <form action="admin.php" method="POST" id="blacklist-form" style="margin: 0;">
+                    <input type="hidden" name="blacklist_customer_id" id="blacklist-customer-id">
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label style="color: #fca5a5; font-size: 0.85rem; margin-bottom: 6px; display: block;">Reason for Blacklisting (optional)</label>
+                        <textarea name="blacklist_reason" id="blacklist-reason-input" rows="3" placeholder="e.g. Repeated non-payment, fraudulent behavior, or abusive conduct..." style="width:100%; padding: 10px 14px; background: rgba(0,0,0,0.3); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; color: white; font-family: inherit; font-size: 0.95rem; resize: vertical; outline: none;"></textarea>
+                    </div>
+                    <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                        <button type="button" onclick="toggleBlacklistForm()" class="btn-cancel" style="padding: 8px 16px; font-size: 0.85rem; border-radius: 8px;">Cancel</button>
+                        <button type="submit" name="submit_blacklist" class="btn-submit" style="width: auto; padding: 8px 20px; font-size: 0.85rem; border-radius: 8px; background: #ef4444; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4); border: none; color: white;">Blacklist Customer</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Blacklist Status Banner (Shown if customer is already blacklisted) -->
+            <div id="blacklist-status-banner" class="hidden" style="margin-bottom: 25px; padding: 20px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 12px; text-align: left;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 10px;">
+                    <h4 style="margin: 0; color: #ef4444; display: flex; align-items: center; gap: 8px; font-size: 1.1rem;">🚫 Blacklisted Customer</h4>
+                    <form action="admin.php" method="POST" style="margin: 0;">
+                        <input type="hidden" name="unblacklist_customer_id" id="unblacklist-customer-id">
+                        <button type="submit" name="submit_unblacklist" class="btn-cancel" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; border-color: rgba(239, 68, 68, 0.4); color: #fca5a5; background: rgba(239, 68, 68, 0.1);">Remove from Blacklist</button>
+<button type="submit" name="submit_unblacklist" class="btn-submit" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; margin-left: 8px; border-color: rgba(34,197,94,0.4); color: #a7f3d0; background: rgba(34,197,94,0.1);">Return as Good</button>
+                    </form>
+                </div>
+                <p style="margin: 0; font-size: 0.95rem; color: #fca5a5; line-height: 1.4;"><strong>Reason:</strong> <span id="cp-blacklist-reason-text">None provided</span></p>
             </div>
 
             <h4 style="border-bottom: 1px solid var(--glass-border); padding-bottom: 10px; margin-bottom: 15px; color: var(--primary-gold);">Purchase History</h4>
@@ -776,6 +909,16 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
         
         function closeCustomerModal() {
             document.getElementById('customerProfileModal').classList.remove('show');
+        }
+
+        function toggleBlacklistForm() {
+            const form = document.getElementById('blacklist-form-container');
+            if (form.classList.contains('hidden')) {
+                form.classList.remove('hidden');
+                form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            } else {
+                form.classList.add('hidden');
+            }
         }
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -876,7 +1019,7 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
             if (customerSearchInput) {
                 customerSearchInput.addEventListener('input', function() {
                     const query = this.value.toLowerCase();
-                    const customerRows = document.querySelectorAll('#customers-table tbody tr');
+                    const customerRows = document.querySelectorAll('.customer-table-view tbody tr');
                     
                     customerRows.forEach(row => {
                         if (row.children.length <= 1) return;
@@ -904,6 +1047,29 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                     document.getElementById('cp-phone').innerText = customerData.phone || 'N/A';
                     document.getElementById('cp-address').innerText = customerData.address || 'N/A';
                     document.getElementById('cp-joined').innerText = customerData.joined;
+
+                    // Blacklist fields setup
+                    const isBlacklisted = customerData.is_blacklisted == 1;
+                    const blacklistReason = customerData.blacklist_reason || '';
+                    
+                    document.getElementById('blacklist-customer-id').value = customerData.id;
+                    document.getElementById('unblacklist-customer-id').value = customerData.id;
+                    document.getElementById('blacklist-form-container').classList.add('hidden');
+                    document.getElementById('blacklist-reason-input').value = '';
+                    
+                    const symbolEl = document.getElementById('cp-blacklist-symbol');
+                    const bannerEl = document.getElementById('blacklist-status-banner');
+                    
+                    if (isBlacklisted) {
+                        symbolEl.style.color = '#ef4444';
+                        symbolEl.title = 'Blacklisted Customer';
+                        bannerEl.classList.remove('hidden');
+                        document.getElementById('cp-blacklist-reason-text').innerText = blacklistReason || 'No reason provided';
+                    } else {
+                        symbolEl.style.color = '#94a3b8';
+                        symbolEl.title = 'Click to Blacklist';
+                        bannerEl.classList.add('hidden');
+                    }
                     
                     // Populate Orders
                     const tbody = document.getElementById('cp-orders-body');
@@ -990,6 +1156,43 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
             } else if (initialSubTab === 'closed') {
                 const closedBtn = document.querySelector('.order-tab-btn[data-target="closed-orders-table"]');
                 if(closedBtn) closedBtn.click();
+            } else if (initialSubTab === 'blacklisted') {
+                const blacklistedBtn = document.querySelector('.customer-tab-btn[data-target="blacklisted-customers-table"]');
+                if(blacklistedBtn) blacklistedBtn.click();
+            }
+
+            const customerTabBtns = document.querySelectorAll('.customer-tab-btn');
+            const customerTableViews = document.querySelectorAll('.customer-table-view');
+            
+            customerTabBtns.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    if (e) e.preventDefault();
+                    customerTabBtns.forEach(b => {
+                        b.classList.remove('active');
+                        b.style.background = 'transparent';
+                        b.style.color = '#fff';
+                    });
+                    
+                    btn.classList.add('active');
+                    const targetId = btn.getAttribute('data-target');
+                    if (targetId === 'blacklisted-customers-table') {
+                        btn.style.background = 'rgba(239, 68, 68, 0.2)';
+                        btn.style.color = '#fca5a5';
+                    } else {
+                        btn.style.background = 'rgba(59, 130, 246, 0.2)';
+                        btn.style.color = '#60a5fa';
+                    }
+                    
+                    customerTableViews.forEach(view => view.classList.add('hidden'));
+                    document.getElementById(targetId).classList.remove('hidden');
+                });
+            });
+
+            const cpBlacklistSymbol = document.getElementById('cp-blacklist-symbol');
+            if (cpBlacklistSymbol) {
+                cpBlacklistSymbol.addEventListener('click', function() {
+                    toggleBlacklistForm();
+                });
             }
 
             const navLinks = document.querySelectorAll('.admin-nav .nav-link');

@@ -49,6 +49,8 @@ try {
     try { $pdo->exec("ALTER TABLE customers ADD COLUMN phone VARCHAR(50) NULL"); } catch (PDOException $e) {}
     try { $pdo->exec("ALTER TABLE customers ADD COLUMN address TEXT NULL"); } catch (PDOException $e) {}
     try { $pdo->exec("ALTER TABLE customers ADD COLUMN profile_image VARCHAR(255) NULL"); } catch (PDOException $e) {}
+    try { $pdo->exec("ALTER TABLE customers ADD COLUMN is_blacklisted TINYINT(1) DEFAULT 0"); } catch (PDOException $e) {}
+    try { $pdo->exec("ALTER TABLE customers ADD COLUMN blacklist_reason TEXT NULL"); } catch (PDOException $e) {}
 
     // Create orders table
     $sql_orders = "CREATE TABLE IF NOT EXISTS orders (
