@@ -14,6 +14,9 @@ if (isset($_GET['success'])) {
     } elseif ($_GET['success'] === 'stock') {
         $message = "Stock updated successfully.";
         $active_tab = 'view-stock';
+    } elseif ($_GET['success'] === 'price') {
+        $message = "Price updated successfully.";
+        $active_tab = 'view-stock';
     } else {
         $message = "Product added successfully.";
         $active_tab = 'view-stock';
@@ -122,6 +125,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_stock'])) {
     if ($stmt->execute([$stock, $id])) {
         // Redirect to avoid form resubmission on refresh
         header("Location: admin.php?success=stock&id={$id}");
+        exit();
+    }
+}
+
+// Handle Update Price
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_price'])) {
+    $id = $_POST['update_price_id'];
+    $price = $_POST['new_price'];
+    $stmt = $pdo->prepare("UPDATE products SET price = ? WHERE id = ?");
+    if ($stmt->execute([$price, $id])) {
+        // Redirect to avoid form resubmission on refresh
+        header("Location: admin.php?success=price&id={$id}");
         exit();
     }
 }
@@ -279,7 +294,10 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
 
             <!-- Manage Products -->
             <div class="card manage-products-card">
-                <h3>Manage Products</h3>
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--glass-border); margin-bottom: 25px; padding-bottom: 15px; flex-wrap: wrap; gap: 15px;">
+                    <h3 style="border-bottom: none; margin-bottom: 0; padding-bottom: 0;">Manage Products</h3>
+                    <input type="text" id="productSearchInput" placeholder="🔍 Search name, category..." style="padding: 8px 15px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.2); color: white; outline: none; min-width: 250px; font-family: inherit;">
+                </div>
                 <div class="table-responsive">
                     <table>
                         <thead>
@@ -298,7 +316,14 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                                 <td><img src="<?php echo htmlspecialchars($p['image_path']); ?>" alt="product" width="50"></td>
                                 <td><?php echo htmlspecialchars($p['name']); ?></td>
                                 <td><span class="badge <?php echo strtolower($p['category']); ?>"><?php echo htmlspecialchars($p['category']); ?></span></td>
-                                <td>$<?php echo htmlspecialchars($p['price']); ?></td>
+                                <td>
+                                    <form action="admin.php" method="POST" style="display: flex; gap: 5px; align-items: center; justify-content: center;">
+                                        <input type="hidden" name="update_price_id" value="<?php echo $p['id']; ?>">
+                                        <span style="color: white; margin-right: 2px;">$</span>
+                                        <input type="number" name="new_price" value="<?php echo htmlspecialchars($p['price'] ?? 0.00); ?>" step="0.01" min="0" style="width: 70px; padding: 4px; border-radius: 4px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.2); color: white;">
+                                        <button type="submit" name="update_price" class="btn-submit" style="padding: 4px 10px; font-size: 0.8rem; border-radius: 4px;">Save</button>
+                                    </form>
+                                </td>
                                 <td>
                                     <form action="admin.php" method="POST" style="display: flex; gap: 5px; align-items: center; justify-content: center;">
                                         <input type="hidden" name="update_stock_id" value="<?php echo $p['id']; ?>">
@@ -822,6 +847,27 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                     filterRows(ongoingRows);
                     filterRows(closedRows);
                     filterRows(deletedRows);
+                });
+            }
+
+            // Product Search
+            const productSearchInput = document.getElementById('productSearchInput');
+            if (productSearchInput) {
+                productSearchInput.addEventListener('input', function() {
+                    const query = this.value.toLowerCase();
+                    const productRows = document.querySelectorAll('.manage-products-card tbody tr');
+                    
+                    productRows.forEach(row => {
+                        if (row.children.length <= 1) return; // Skip "No products found." row
+                        const nameText = row.children[1] ? row.children[1].innerText.toLowerCase() : '';
+                        const categoryText = row.children[2] ? row.children[2].innerText.toLowerCase() : '';
+                        
+                        if (nameText.includes(query) || categoryText.includes(query)) {
+                            row.style.display = '';
+                        } else {
+                            row.style.display = 'none';
+                        }
+                    });
                 });
             }
 
