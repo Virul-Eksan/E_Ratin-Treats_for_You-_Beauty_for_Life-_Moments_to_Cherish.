@@ -243,16 +243,15 @@ foreach ($customers_list as $cust) {
     }
 }
 
-$stmt_orders_by_customer = $pdo->query("SELECT * FROM orders WHERE customer_id IS NOT NULL ORDER BY id DESC");
-$orders_by_customer = [];
-foreach ($stmt_orders_by_customer->fetchAll() as $order) {
-    $orders_by_customer[$order['customer_id']][] = $order;
-}
-// New notifications: count of unread customer messages
-$stmt_new_messages = $pdo->query("SELECT COUNT(*) FROM messages WHERE is_read = 0");
-$new_messages_count = $stmt_new_messages->fetchColumn();
-// Count of new orders (pending)
-$new_orders_count = count($pending_orders);
+    // Ensure messages table exists (create if missing)
+    $createMessagesTableSql = "CREATE TABLE IF NOT EXISTS messages (\n        id INT AUTO_INCREMENT PRIMARY KEY,\n        customer_id INT NOT NULL,\n        subject VARCHAR(255) NOT NULL,\n        body TEXT,\n        is_read TINYINT(1) DEFAULT 0,\n        created_at DATETIME DEFAULT CURRENT_TIMESTAMP\n    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
+    $pdo->exec($createMessagesTableSql);
+
+    // New notifications: count of unread customer messages
+    $stmt_new_messages = $pdo->query("SELECT COUNT(*) FROM messages WHERE is_read = 0");
+    $new_messages_count = $stmt_new_messages->fetchColumn();
+    // Count of new orders (pending)
+    $new_orders_count = count($pending_orders);
 
 // Fetch Email Settings
 $stmt_settings = $pdo->query("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('email_subject', 'email_body', 'smtp_username', 'smtp_password')");
