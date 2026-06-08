@@ -44,6 +44,49 @@ body {
     margin: 0 auto;
 }
 
+.notification-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 12000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+.notification-overlay.show {
+    opacity: 1;
+    pointer-events: all;
+}
+.notification-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 0;
+    padding: 20px;
+    overflow-y: auto;
+    box-shadow: 0 12px 36px rgba(0,0,0,0.5);
+    z-index: 20000;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+}
+
+/* Notification panel visibility helpers */
+.notification-panel.hidden { display: none; }
+.notification-panel.show { display: flex; }
+
+
 /* --- Glassmorphism Headers & Cards --- */
 .admin-header, .card {
     background: var(--glass-bg);
@@ -60,6 +103,18 @@ body {
     align-items: center;
     padding: 20px 30px;
     margin-bottom: 30px;
+}
+
+/* Notification Panel */
+
+
+/* Highlight order row when navigated from notification */
+.highlight-order {
+    animation: highlightBlink 2s ease-out;
+}
+@keyframes highlightBlink {
+    0% { background-color: rgba(255,255,0,0.4); }
+    100% { background-color: transparent; }
 }
 
 .admin-header h2 {
@@ -459,7 +514,7 @@ td img {
 .modal-overlay.show .modal-content { transform: translateY(0); }
 .modal-content h3 { color: #fff; margin-bottom: 15px; font-size: 1.5rem; }
 .modal-content p { color: #cbd5e1; margin-bottom: 25px; line-height: 1.5; }
-.modal-actions { display: flex; justify-content: center; gap: 15px; }
+
 .btn-cancel {
     background: rgba(255, 255, 255, 0.1); color: #fff; border: 1px solid var(--glass-border);
     padding: 10px 20px; border-radius: 10px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; text-decoration: none; display: inline-block;
