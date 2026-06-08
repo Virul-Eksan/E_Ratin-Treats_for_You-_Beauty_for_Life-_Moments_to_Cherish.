@@ -65,6 +65,7 @@ try {
         cart_details TEXT NOT NULL,
         total_amount DECIMAL(10, 2) NOT NULL,
         is_deleted TINYINT(1) DEFAULT 0,
+        is_seen TINYINT(1) DEFAULT 0,
         status VARCHAR(20) DEFAULT 'pending',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL
@@ -76,6 +77,7 @@ try {
     try {
         $pdo->exec("ALTER TABLE orders ADD COLUMN customer_id INT NULL");
         $pdo->exec("ALTER TABLE orders ADD FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL");
+        $pdo->exec("ALTER TABLE orders ADD COLUMN is_seen TINYINT(1) DEFAULT 0");
     } catch (PDOException $e) {
         // Column might already exist, which is fine
     }

@@ -214,8 +214,10 @@ $stmt = $pdo->query("SELECT * FROM products ORDER BY id DESC");
 $products = $stmt->fetchAll();
 
 // Fetch pending orders
-$stmt_pending = $pdo->query("SELECT * FROM orders WHERE is_deleted = 0 AND status = 'pending' ORDER BY id DESC");
+$stmt_pending = $pdo->prepare("SELECT * FROM orders WHERE is_deleted = 0 AND status = 'pending' AND is_viewed = 0 ORDER BY id DESC");
+$stmt_pending->execute();
 $pending_orders = $stmt_pending->fetchAll();
+
 
 // Fetch ongoing orders
 $stmt_ongoing = $pdo->query("SELECT * FROM orders WHERE is_deleted = 0 AND status = 'ongoing' ORDER BY id DESC");
@@ -258,10 +260,12 @@ foreach ($all_orders as $o) {
     $pdo->exec($createMessagesTableSql);
 
     // New notifications: count of unread customer messages
-    $stmt_new_messages = $pdo->query("SELECT COUNT(*) FROM messages WHERE is_read = 0");
-    $new_messages_count = $stmt_new_messages->fetchColumn();
-    // Count of new orders (pending)
-    $new_orders_count = count($pending_orders);
+// New notifications: count of unread customer messages
+$stmt_new_messages = $pdo->query("SELECT COUNT(*) FROM messages WHERE is_read = 0");
+$new_messages_count = $stmt_new_messages->fetchColumn();
+// Count of new orders (pending and unseen)
+$stmt_new_orders = $pdo->query("SELECT COUNT(*) FROM orders WHERE status='pending' AND is_viewed=0");
+$new_orders_count = $stmt_new_orders->fetchColumn();
 
 // Fetch Email Settings
 $stmt_settings = $pdo->query("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('email_subject', 'email_body', 'smtp_username', 'smtp_password')");
