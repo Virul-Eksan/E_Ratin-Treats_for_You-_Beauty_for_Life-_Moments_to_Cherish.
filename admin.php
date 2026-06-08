@@ -6,22 +6,6 @@ $order_message = '';
 $active_tab = 'view-stock';
 $active_sub_tab = 'pending';
 
-if (isset($_GET['ajax_action'])) {
-    header('Content-Type: application/json');
-    if ($_GET['ajax_action'] === 'mark_msg_read' && isset($_GET['id'])) {
-        $stmt = $pdo->prepare("UPDATE messages SET is_read = 1 WHERE id = ?");
-        $stmt->execute([$_GET['id']]);
-        echo json_encode(['success' => true]);
-        exit();
-    }
-    if ($_GET['ajax_action'] === 'mark_order_viewed' && isset($_GET['id'])) {
-        $stmt = $pdo->prepare("UPDATE orders SET is_viewed = 1 WHERE id = ?");
-        $stmt->execute([$_GET['id']]);
-        echo json_encode(['success' => true]);
-        exit();
-    }
-}
-
 // Handle success messages
 if (isset($_GET['success'])) {
     if ($_GET['success'] === 'email') {
@@ -272,17 +256,12 @@ foreach ($all_orders as $o) {
     // Ensure messages table exists (create if missing)
     $createMessagesTableSql = "CREATE TABLE IF NOT EXISTS messages (\n        id INT AUTO_INCREMENT PRIMARY KEY,\n        customer_id INT NOT NULL,\n        subject VARCHAR(255) NOT NULL,\n        body TEXT,\n        is_read TINYINT(1) DEFAULT 0,\n        created_at DATETIME DEFAULT CURRENT_TIMESTAMP\n    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
     $pdo->exec($createMessagesTableSql);
-    
-    // Ensure is_viewed column exists in orders table
-    try { $pdo->exec("ALTER TABLE orders ADD COLUMN is_viewed TINYINT(1) DEFAULT 0"); } catch (PDOException $e) {}
 
     // New notifications: count of unread customer messages
     $stmt_new_messages = $pdo->query("SELECT COUNT(*) FROM messages WHERE is_read = 0");
     $new_messages_count = $stmt_new_messages->fetchColumn();
-    // Count of new orders (pending and unviewed)
-    $stmt_notif_orders = $pdo->query("SELECT * FROM orders WHERE is_deleted = 0 AND status = 'pending' AND is_viewed = 0 ORDER BY id DESC");
-    $notification_orders = $stmt_notif_orders->fetchAll();
-    $new_orders_count = count($notification_orders);
+    // Count of new orders (pending)
+    $new_orders_count = count($pending_orders);
 
 // Fetch Email Settings
 $stmt_settings = $pdo->query("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('email_subject', 'email_body', 'smtp_username', 'smtp_password')");
@@ -1267,34 +1246,11 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                 });
             }
 
-            // Helper to update notification badge
-            function decrementNotifCount() {
-                const countEl = document.getElementById('notifCount');
-                if (countEl) {
-                    let currentCount = parseInt(countEl.innerText) || 0;
-                    if (currentCount > 0) {
-                        currentCount--;
-                        countEl.innerText = currentCount;
-                        if (currentCount === 0) {
-                            countEl.style.display = 'none';
-                        }
-                    }
-                }
-            }
-
-            // Notification Item Click Logic: Navigate, Clear Search, Scroll, and Update Count
+            // Notification Item Click Logic: Navigate, Clear Search, and Scroll
             const orderNotifItems = document.querySelectorAll('.order-notif-item');
             orderNotifItems.forEach(item => {
                 item.addEventListener('click', () => {
                     const orderId = item.getAttribute('data-order-id');
-                    
-                    // Update count and remove item from the sidebar list
-                    decrementNotifCount();
-                    item.remove();
-
-                    // Mark as viewed in DB to persist reduction
-                    fetch(`admin.php?ajax_action=mark_order_viewed&id=${orderId}`);
-
                     if (!orderId) return;
 
                     // 1. Switch to Orders Tab
@@ -1328,20 +1284,6 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                 });
             });
 
-            // Message Notification Click Logic
-            const msgNotifItems = document.querySelectorAll('.msg-notif-item');
-            msgNotifItems.forEach(item => {
-                item.addEventListener('click', () => {
-                    const msgId = item.getAttribute('data-msg-id');
-                    
-                    decrementNotifCount();
-                    item.remove();
-                    
-                    // Mark as read in DB to persist reduction
-                    if (msgId) fetch(`admin.php?ajax_action=mark_msg_read&id=${msgId}`);
-                });
-            });
-
             if (closeNotifBtn && notifPanel) {
                 closeNotifBtn.addEventListener('click', () => {
                     notifPanel.classList.add('hidden');
@@ -1367,7 +1309,7 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
         <div style="margin-bottom: 30px;">
             <h4 style="margin:0 0 15px; color:#34d399; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px;">New Orders</h4>
             <ul style="list-style:none; padding:0; margin:0;">
-                <?php foreach($notification_orders as $order): ?>
+                <?php foreach($pending_orders as $order): ?>
                     <li class="order-notif-item" data-order-id="<?php echo $order['id']; ?>" style="background:rgba(52, 211, 153, 0.08); border: 1px solid rgba(52, 211, 153, 0.15); padding:12px; margin:10px 0; border-radius:10px; font-size:0.9rem; color:#a7f3d0; cursor:pointer; transition: 0.2s;">
                         <div style="display:flex; justify-content:space-between; margin-bottom: 4px;">
                             <strong>Order #<?php echo $order['id']; ?></strong>
@@ -1376,7 +1318,7 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                         <span style="font-size: 0.8rem; opacity: 0.7;"><?php echo htmlspecialchars(date('M d, Y h:i A', strtotime($order['created_at']))); ?></span>
                     </li>
                 <?php endforeach; ?>
-                <?php if(empty($notification_orders)): ?>
+                <?php if(empty($pending_orders)): ?>
                     <li style="color: #94a3b8; font-size: 0.9rem; padding: 10px; background: rgba(255,255,255,0.03); border-radius: 8px; text-align: center;">No new orders</li>
                 <?php endif; ?>
             </ul>
@@ -1389,7 +1331,7 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                 $stmt_msgs = $pdo->query("SELECT * FROM messages WHERE is_read = 0 ORDER BY created_at DESC LIMIT 5");
                 $messages = $stmt_msgs->fetchAll();
                 foreach($messages as $msg): ?>
-                    <li class="msg-notif-item" data-msg-id="<?php echo $msg['id']; ?>" style="background:rgba(96, 165, 250, 0.08); border: 1px solid rgba(96, 165, 250, 0.15); padding:12px; margin:10px 0; border-radius:10px; font-size:0.9rem; color:#bfdbfe; cursor:pointer;">
+                    <li style="background:rgba(96, 165, 250, 0.08); border: 1px solid rgba(96, 165, 250, 0.15); padding:12px; margin:10px 0; border-radius:10px; font-size:0.9rem; color:#bfdbfe;">
                         <strong><?php echo htmlspecialchars($msg['subject'] ?? 'Message'); ?></strong><br>
                         <span style="font-size: 0.8rem; opacity: 0.7;"><?php echo htmlspecialchars(date('M d, Y', strtotime($msg['created_at']))); ?></span>
                     </li>
@@ -1403,7 +1345,6 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
 
     <style>
         .notification-panel.hidden { display: none !important; }
-        .msg-notif-item:hover { background: rgba(96, 165, 250, 0.15) !important; }
     </style>
 </body>
 </html>
