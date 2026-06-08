@@ -6,7 +6,6 @@ $order_message = '';
 $active_tab = 'view-stock';
 $active_sub_tab = 'pending';
 
-F// Handle AJAX notification updates to ensure count reduction persists on refresh
 if (isset($_GET['ajax_action'])) {
     header('Content-Type: application/json');
     if ($_GET['ajax_action'] === 'mark_msg_read' && isset($_GET['id'])) {
