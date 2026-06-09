@@ -1358,6 +1358,39 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                     notifPanel.classList.add('hidden');
                 }
             });
+
+            // Navbar Horizontal Scroll Logic with Mouse Wheel Support
+            const navBar = document.getElementById('admin-navbar');
+            const prevBtn = document.getElementById('nav-prev');
+            const nextBtn = document.getElementById('nav-next');
+
+            if (navBar && prevBtn && nextBtn) {
+                const checkScroll = () => {
+                    const sl = Math.ceil(navBar.scrollLeft);
+                    const sw = navBar.scrollWidth;
+                    const cw = navBar.clientWidth;
+                    const max = sw - cw;
+
+                    // Toggle arrow visibility with a small buffer for sub-pixel accuracy
+                    prevBtn.classList.toggle('hidden', sl <= 5 || max <= 0);
+                    nextBtn.classList.toggle('hidden', sl >= max - 5 || max <= 0);
+                };
+
+                prevBtn.addEventListener('click', () => navBar.scrollTo({ left: 0, behavior: 'smooth' }));
+                nextBtn.addEventListener('click', () => navBar.scrollTo({ left: navBar.scrollWidth, behavior: 'smooth' }));
+
+                // Intercept vertical mouse wheel and convert to horizontal scroll
+                navBar.addEventListener('wheel', (e) => {
+                    if (e.deltaY !== 0) {
+                        e.preventDefault();
+                        navBar.scrollLeft += e.deltaY;
+                    }
+                });
+
+                navBar.addEventListener('scroll', checkScroll);
+                window.addEventListener('resize', checkScroll);
+                setTimeout(checkScroll, 100);
+            }
         });
     </script>
 
