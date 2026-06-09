@@ -281,18 +281,68 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
     <meta charset="UTF-8">
     <title>Admin Dashboard - ඒ රtin (E RATIN)</title>
     <link rel="stylesheet" href="admin.css?v=5">
+    <style>
+        .nav-scroll-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            flex: 1;
+            margin: 0 20px;
+            overflow: hidden;
+        }
+        .admin-nav {
+            display: flex !important;
+            gap: 20px;
+            overflow-x: auto;
+            white-space: nowrap;
+            scrollbar-width: none; /* Firefox */
+            -ms-overflow-style: none; /* IE/Edge */
+            scroll-behavior: smooth;
+            padding: 5px 0;
+            width: 100%;
+        }
+        .admin-nav::-webkit-scrollbar {
+            display: none; /* Chrome/Safari */
+        }
+        .nav-link {
+            flex-shrink: 0;
+        }
+        .nav-arrow {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            transition: all 0.3s ease;
+            z-index: 5;
+            user-select: none;
+        }
+        .nav-arrow:hover { background: var(--primary-pink); }
+        .nav-arrow.hidden { visibility: hidden; opacity: 0; }
+    </style>
 </head>
 <body>
     <div class="admin-container">
         <header class="admin-header">
             <h2><img src="logo.jpg" alt="Logo" class="admin-brand-logo"   style="height:40px; width:40px; border-radius:50%; object-fit:cover;"> Store Admin Panel</h2>
-            <nav class="admin-nav">
-                <a href="#" class="nav-link <?php echo $active_tab == 'view-stock' ? 'active' : ''; ?>" data-target="view-stock">Stock</a>
-                <a href="#" class="nav-link <?php echo $active_tab == 'view-gallery' ? 'active' : ''; ?>" data-target="view-gallery">Gallery</a>
-                <a href="#" class="nav-link <?php echo $active_tab == 'view-orders' ? 'active' : ''; ?>" data-target="view-orders">Orders</a>
-                <a href="#" class="nav-link <?php echo $active_tab == 'view-customers' ? 'active' : ''; ?>" data-target="view-customers">Customers</a>
-                <a href="#" class="nav-link <?php echo $active_tab == 'view-email' ? 'active' : ''; ?>" data-target="view-email">Email Template</a>
-            </nav>
+            <div class="nav-scroll-wrapper">
+                <button class="nav-arrow left hidden" id="nav-prev">&#9664;</button>
+                <nav class="admin-nav" id="admin-navbar">
+                    <a href="#" class="nav-link <?php echo $active_tab == 'view-stock' ? 'active' : ''; ?>" data-target="view-stock">Stock</a>
+                    <a href="#" class="nav-link <?php echo $active_tab == 'view-gallery' ? 'active' : ''; ?>" data-target="view-gallery">Gallery</a>
+                    <a href="#" class="nav-link <?php echo $active_tab == 'view-orders' ? 'active' : ''; ?>" data-target="view-orders">Orders</a>
+                    <a href="#" class="nav-link <?php echo $active_tab == 'view-customers' ? 'active' : ''; ?>" data-target="view-customers">Customers</a>
+                    <a href="#" class="nav-link <?php echo $active_tab == 'view-email' ? 'active' : ''; ?>" data-target="view-email">Email Template</a>
+                    <a href="#" class="nav-link" data-target="view-reviews">Customer Reviews</a>
+                </nav>
+                <button class="nav-arrow right" id="nav-next">&#9654;</button>
+            </div>
         <a href="index.php" class="btn-view" target="_blank">View Live Site</a>
         <div class="notification-wrapper" style="position: relative; display: inline-block; margin-left: 20px;">
             <span id="notificationIcon" class="notification-icon" style="cursor: pointer; font-size: 1.5rem;" title="Notifications">🔔</span>
@@ -707,6 +757,14 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                     </div>
                     <button type="submit" name="update_email" class="btn-submit">Save Template</button>
                 </form>
+            </div>
+        </div>
+
+        <!-- Customer Reviews View -->
+        <div id="view-reviews" class="admin-view hidden">
+            <div class="card">
+                <h3>Manage Customer Reviews</h3>
+                <p>This section is for reviewing and moderating customer feedback.</p>
             </div>
         </div>
 
