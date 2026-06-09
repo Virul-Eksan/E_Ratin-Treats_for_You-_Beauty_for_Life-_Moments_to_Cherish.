@@ -109,5 +109,44 @@ if ($action === 'create_order') {
     exit;
 }
 
+if ($action === 'get_reviews') {
+    $category = $_GET['category'] ?? '';
+    if (empty($category)) {
+        echo json_encode(['success' => false, 'message' => 'Category required']);
+        exit;
+    }
+    try {
+        $stmt = $pdo->prepare("SELECT id, customer_name, rating, review_text, created_at FROM reviews WHERE category = ? ORDER BY created_at DESC");
+        $stmt->execute([$category]);
+        $reviews = $stmt->fetchAll();
+        echo json_encode(['success' => true, 'reviews' => $reviews]);
+    } catch (PDOException $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+    exit;
+}
+
+if ($action === 'submit_review') {
+    $data = json_decode(file_get_contents("php://input"), true);
+    $category    = trim($data['category'] ?? '');
+    $name        = trim($data['customer_name'] ?? '');
+    $rating      = intval($data['rating'] ?? 5);
+    $review_text = trim($data['review_text'] ?? '');
+
+    if (empty($category) || empty($name) || empty($review_text) || $rating < 1 || $rating > 5) {
+        echo json_encode(['success' => false, 'message' => 'All fields are required and rating must be 1-5.']);
+        exit;
+    }
+
+    try {
+        $stmt = $pdo->prepare("INSERT INTO reviews (category, customer_name, rating, review_text) VALUES (?, ?, ?, ?)");
+        $stmt->execute([$category, $name, $rating, $review_text]);
+        echo json_encode(['success' => true, 'message' => 'Review submitted!']);
+    } catch (PDOException $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+    exit;
+}
+
 echo json_encode(['success' => false, 'message' => 'Invalid action']);
 ?>

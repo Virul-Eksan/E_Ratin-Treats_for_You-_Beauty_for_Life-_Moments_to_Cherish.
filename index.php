@@ -13,7 +13,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ඒ රtin (E RATIN) - Treats, Beauty, Moments</title>
-    <link rel="stylesheet" href="style.css?v=9">
+    <link rel="stylesheet" href="style.css?v=10">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
 </head>
@@ -100,6 +100,51 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
                 
                 <div id="products-grid" class="products-grid">
                     <!-- Products will be dynamically loaded here via JS -->
+                </div>
+            </section>
+
+            <!-- Customer Reviews Section -->
+            <section class="reviews-section" id="reviews-section">
+                <div class="section-title">
+                    <h2>Customer Reviews</h2>
+                </div>
+
+                <!-- Write a Review Form -->
+                <div class="review-form-card">
+                    <h3 class="review-form-title">Share Your Experience ✨</h3>
+                    <form id="review-form" class="review-form">
+                        <div class="review-form-row">
+                            <div class="review-form-group">
+                                <label for="review-name">Your Name</label>
+                                <input type="text" id="review-name" placeholder="e.g. Anjali Perera" required maxlength="80">
+                            </div>
+                            <div class="review-form-group review-stars-group">
+                                <label>Rating</label>
+                                <div class="star-rating" id="star-rating">
+                                    <span class="star" data-val="1">★</span>
+                                    <span class="star" data-val="2">★</span>
+                                    <span class="star" data-val="3">★</span>
+                                    <span class="star" data-val="4">★</span>
+                                    <span class="star" data-val="5">★</span>
+                                </div>
+                                <input type="hidden" id="review-rating" value="0">
+                            </div>
+                        </div>
+                        <div class="review-form-group">
+                            <label for="review-text">Your Review</label>
+                            <textarea id="review-text" placeholder="Tell us about your experience with this product..." required maxlength="500" rows="3"></textarea>
+                        </div>
+                        <button type="submit" class="btn-submit-review" id="btn-submit-review">Post Review</button>
+                    </form>
+                </div>
+
+                <!-- Review Carousel Panel -->
+                <div class="review-carousel-wrapper" id="review-carousel-wrapper">
+                    <div class="review-carousel-track" id="review-carousel-track">
+                        <!-- Review cards injected by JS -->
+                    </div>
+                    <div class="review-carousel-dots" id="review-carousel-dots"></div>
+                    <p class="review-empty-msg" id="review-empty-msg" style="display:none;">No reviews yet. Be the first to share your experience!</p>
                 </div>
             </section>
         </div>
@@ -199,6 +244,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
     <script>
         const isLoggedIn = <?php echo isset($_SESSION['customer_id']) ? 'true' : 'false'; ?>;
     </script>
-    <script src="script.js?v=9"></script>
+    <script src="script.js?v=10"></script>
 </body>
 </html>

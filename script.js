@@ -412,14 +412,181 @@ document.addEventListener("DOMContentLoaded", () => {
         toast.className = 'toast';
         toast.innerHTML = `<span class="toast-icon">✓</span> <span>${message}</span>`;
         toastContainer.appendChild(toast);
-
-        // Animate in
         setTimeout(() => toast.classList.add('show'), 10);
-
-        // Remove after 3 seconds
         setTimeout(() => {
             toast.classList.remove('show');
-            setTimeout(() => toast.remove(), 400); // Wait for transition
+            setTimeout(() => toast.remove(), 400);
         }, 3000);
+    };
+
+    // =============================================
+    // --- Customer Reviews System ---
+    // =============================================
+    let currentReviewCategory = '';
+    let reviewCarouselIndex = 0;
+    let reviewCarouselTimer = null;
+    let reviewsData = [];
+
+    const reviewCarouselTrack = document.getElementById('review-carousel-track');
+    const reviewCarouselDots  = document.getElementById('review-carousel-dots');
+    const reviewEmptyMsg      = document.getElementById('review-empty-msg');
+    const reviewForm          = document.getElementById('review-form');
+    const starRatingEl        = document.getElementById('star-rating');
+    const reviewRatingInput   = document.getElementById('review-rating');
+
+    // --- Star Rating Interaction ---
+    if (starRatingEl) {
+        const stars = starRatingEl.querySelectorAll('.star');
+        stars.forEach(star => {
+            star.addEventListener('mouseover', () => {
+                const val = parseInt(star.dataset.val);
+                stars.forEach(s => s.classList.toggle('hovered', parseInt(s.dataset.val) <= val));
+            });
+            star.addEventListener('mouseout', () => {
+                stars.forEach(s => s.classList.remove('hovered'));
+            });
+            star.addEventListener('click', () => {
+                const val = parseInt(star.dataset.val);
+                reviewRatingInput.value = val;
+                stars.forEach(s => s.classList.toggle('selected', parseInt(s.dataset.val) <= val));
+            });
+        });
+    }
+
+    // --- Load Reviews for a category ---
+    const loadReviews = async (category) => {
+        currentReviewCategory = category;
+        reviewCarouselIndex = 0;
+        clearInterval(reviewCarouselTimer);
+        if (reviewCarouselTrack) reviewCarouselTrack.innerHTML = '';
+        if (reviewCarouselDots)  reviewCarouselDots.innerHTML  = '';
+        if (reviewEmptyMsg) reviewEmptyMsg.style.display = 'none';
+
+        try {
+            const res  = await fetch(`api.php?action=get_reviews&category=${encodeURIComponent(category)}`);
+            const data = await res.json();
+            if (data.success) {
+                reviewsData = data.reviews;
+                renderReviewCarousel(reviewsData);
+            }
+        } catch (e) {
+            console.error('Could not load reviews', e);
+        }
+    };
+
+    // --- Render Review Carousel ---
+    const renderReviewCarousel = (reviews) => {
+        if (!reviewCarouselTrack || !reviewCarouselDots) return;
+        reviewCarouselTrack.innerHTML = '';
+        reviewCarouselDots.innerHTML  = '';
+
+        if (reviews.length === 0) {
+            if (reviewEmptyMsg) reviewEmptyMsg.style.display = 'block';
+            return;
+        }
+        if (reviewEmptyMsg) reviewEmptyMsg.style.display = 'none';
+
+        reviews.forEach((r, i) => {
+            // Card
+            const card = document.createElement('div');
+            card.className = 'review-card';
+            const stars = '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating);
+            const date  = new Date(r.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+            card.innerHTML = `
+                <div class="review-card-header">
+                    <div class="review-avatar">${r.customer_name.charAt(0).toUpperCase()}</div>
+                    <div>
+                        <div class="review-author">${escapeHtml(r.customer_name)}</div>
+                        <div class="review-date">${date}</div>
+                    </div>
+                    <div class="review-stars-display">${stars}</div>
+                </div>
+                <p class="review-body">${escapeHtml(r.review_text)}</p>
+            `;
+            reviewCarouselTrack.appendChild(card);
+
+            // Dot
+            const dot = document.createElement('span');
+            dot.className = 'review-dot' + (i === 0 ? ' active' : '');
+            dot.addEventListener('click', () => goToSlide(i));
+            reviewCarouselDots.appendChild(dot);
+        });
+
+        goToSlide(0);
+
+        // Auto-slide every 7 seconds
+        if (reviews.length > 1) {
+            reviewCarouselTimer = setInterval(() => {
+                reviewCarouselIndex = (reviewCarouselIndex + 1) % reviews.length;
+                goToSlide(reviewCarouselIndex);
+            }, 7000);
+        }
+    };
+
+    const goToSlide = (index) => {
+        reviewCarouselIndex = index;
+        const cards = reviewCarouselTrack ? reviewCarouselTrack.querySelectorAll('.review-card') : [];
+        const dots  = reviewCarouselDots  ? reviewCarouselDots.querySelectorAll('.review-dot')  : [];
+        cards.forEach((c, i) => c.classList.toggle('active', i === index));
+        dots.forEach((d, i)  => d.classList.toggle('active', i === index));
+    };
+
+    // Helper
+    const escapeHtml = (str) => str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+    // --- Submit Review ---
+    if (reviewForm) {
+        reviewForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name   = document.getElementById('review-name').value.trim();
+            const rating = parseInt(reviewRatingInput.value);
+            const text   = document.getElementById('review-text').value.trim();
+
+            if (!name || !text) { showToast('Please fill all fields.'); return; }
+            if (rating < 1)     { showToast('Please select a star rating.'); return; }
+
+            const btn = document.getElementById('btn-submit-review');
+            btn.disabled = true;
+            btn.textContent = 'Posting...';
+
+            try {
+                const res  = await fetch('api.php?action=submit_review', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ category: currentReviewCategory, customer_name: name, rating, review_text: text })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast('✨ Review posted successfully!');
+                    reviewForm.reset();
+                    reviewRatingInput.value = '0';
+                    if (starRatingEl) starRatingEl.querySelectorAll('.star').forEach(s => s.classList.remove('selected'));
+                    await loadReviews(currentReviewCategory);
+                } else {
+                    showToast('Error: ' + data.message);
+                }
+            } catch (err) {
+                showToast('Could not post review. Try again.');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Post Review';
+            }
+        });
+    }
+
+    // Hook into openCategoryView to load reviews whenever category changes
+    const _origOpenCategoryView = window.openCategoryView;
+    window.openCategoryView = (category) => {
+        _origOpenCategoryView(category);
+        if (category !== 'All') {
+            loadReviews(category);
+        } else {
+            // Hide review section for "All" view
+            const revSec = document.getElementById('reviews-section');
+            if (revSec) revSec.style.display = 'none';
+        }
+        // Show reviews section for specific categories
+        const revSec = document.getElementById('reviews-section');
+        if (revSec) revSec.style.display = category === 'All' ? 'none' : 'block';
     };
 });
