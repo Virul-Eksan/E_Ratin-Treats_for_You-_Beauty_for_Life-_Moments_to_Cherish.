@@ -589,4 +589,89 @@ document.addEventListener("DOMContentLoaded", () => {
         const revSec = document.getElementById('reviews-section');
         if (revSec) revSec.style.display = category === 'All' ? 'none' : 'block';
     };
+
+    // =============================================
+    // --- Home Page: All Reviews Panel ---
+    // =============================================
+    let homeReviewIndex = 0;
+    let homeReviewTimer = null;
+    let homeReviewsAll  = [];
+
+    const homeTrack = document.getElementById('home-reviews-track');
+    const homeDots  = document.getElementById('home-reviews-dots');
+    const homeEmpty = document.getElementById('home-reviews-empty');
+
+    const loadAllReviews = async () => {
+        try {
+            const res  = await fetch('api.php?action=get_all_reviews');
+            const data = await res.json();
+            if (data.success) {
+                homeReviewsAll = data.reviews;
+                renderHomeReviews(homeReviewsAll);
+            }
+        } catch (e) { console.error('Home reviews load failed', e); }
+    };
+
+    const renderHomeReviews = (reviews) => {
+        if (!homeTrack || !homeDots) return;
+        homeTrack.innerHTML = '';
+        homeDots.innerHTML  = '';
+        clearInterval(homeReviewTimer);
+
+        if (reviews.length === 0) {
+            if (homeEmpty) homeEmpty.style.display = 'block';
+            return;
+        }
+        if (homeEmpty) homeEmpty.style.display = 'none';
+
+        const catColors = { Chocolates: '#8b5a2b', Cosmetics: '#c4746a', Nuts: '#6b8e23' };
+
+        reviews.forEach((r, i) => {
+            const card = document.createElement('div');
+            card.className = 'home-review-card';
+            const filled = '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating);
+            const date   = new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const catColor = catColors[r.category] || 'var(--primary-gold)';
+            card.innerHTML = `
+                <div class="home-review-top">
+                    <div class="home-review-avatar">${r.customer_name.charAt(0).toUpperCase()}</div>
+                    <div class="home-review-meta">
+                        <div class="home-review-author">${escapeHtml(r.customer_name)}</div>
+                        <span class="home-review-cat-badge" style="background:${catColor}20;color:${catColor};">${r.category}</span>
+                    </div>
+                    <div class="home-review-right">
+                        <div class="home-review-stars">${filled}</div>
+                        <div class="home-review-date">${date}</div>
+                    </div>
+                </div>
+                <p class="home-review-text">"${escapeHtml(r.review_text)}"</p>
+            `;
+            homeTrack.appendChild(card);
+
+            const dot = document.createElement('span');
+            dot.className = 'home-review-dot' + (i === 0 ? ' active' : '');
+            dot.addEventListener('click', () => goHomeSlide(i));
+            homeDots.appendChild(dot);
+        });
+
+        goHomeSlide(0);
+
+        if (reviews.length > 1) {
+            homeReviewTimer = setInterval(() => {
+                homeReviewIndex = (homeReviewIndex + 1) % reviews.length;
+                goHomeSlide(homeReviewIndex);
+            }, 7000);
+        }
+    };
+
+    const goHomeSlide = (index) => {
+        homeReviewIndex = index;
+        const cards = homeTrack ? homeTrack.querySelectorAll('.home-review-card') : [];
+        const dots  = homeDots  ? homeDots.querySelectorAll('.home-review-dot')  : [];
+        cards.forEach((c, i) => c.classList.toggle('active', i === index));
+        dots.forEach((d, i)  => d.classList.toggle('active', i === index));
+    };
+
+    // Load all reviews on page init
+    loadAllReviews();
 });

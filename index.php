@@ -13,7 +13,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ඒ රtin (E RATIN) - Treats, Beauty, Moments</title>
-    <link rel="stylesheet" href="style.css?v=10">
+    <link rel="stylesheet" href="style.css?v=11">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
 </head>
@@ -86,6 +86,23 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
                     <h2>Premium Nuts</h2>
                 </div>
                 <div class="slider-container" id="slider-nuts">
+                </div>
+            </section>
+
+            <!-- All Reviews Panel -->
+            <section class="home-reviews-panel" id="home-reviews-panel">
+                <div class="section-title">
+                    <h2>What Our Customers Say</h2>
+                    <p class="home-reviews-sub">Real experiences from our happy shoppers ♥</p>
+                </div>
+                <div class="home-reviews-carousel-wrapper">
+                    <div class="home-reviews-track" id="home-reviews-track">
+                        <!-- injected by JS -->
+                    </div>
+                    <div class="home-reviews-dots" id="home-reviews-dots"></div>
+                    <p class="home-reviews-empty" id="home-reviews-empty" style="display:none;">
+                        No reviews yet — be the first to share your experience!
+                    </p>
                 </div>
             </section>
         </div>
@@ -244,6 +261,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
     <script>
         const isLoggedIn = <?php echo isset($_SESSION['customer_id']) ? 'true' : 'false'; ?>;
     </script>
-    <script src="script.js?v=10"></script>
+    <script src="script.js?v=11"></script>
 </body>
 </html>

@@ -109,6 +109,17 @@ if ($action === 'create_order') {
     exit;
 }
 
+if ($action === 'get_all_reviews') {
+    try {
+        $stmt = $pdo->query("SELECT id, category, customer_name, rating, review_text, created_at FROM reviews ORDER BY created_at DESC");
+        $reviews = $stmt->fetchAll();
+        echo json_encode(['success' => true, 'reviews' => $reviews]);
+    } catch (PDOException $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+    exit;
+}
+
 if ($action === 'get_reviews') {
     $category = $_GET['category'] ?? '';
     if (empty($category)) {
