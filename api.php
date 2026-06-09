@@ -63,10 +63,6 @@ if ($action === 'create_order') {
             if (!empty($smtp_user) && !empty($smtp_pass)) {
                 // Send confirmation email via PHPMailer
                 $mail = new PHPMailer(true);
-
-                $mail->SMTPDebug = 2;
-                $mail->Debugoutput = 'html';
-
                 try {
                     // Server settings
                     $mail->isSMTP();
@@ -99,8 +95,7 @@ if ($action === 'create_order') {
                     $mail->send();
                 } catch (Exception $e) {
                     // We don't want the frontend to fail just because email failed, so we log it silently.
-                    //error_log("Message could not be sent. Mailer Error: {$mail->ErrorInfo}");
-                    die("MAIL ERROR: " . $mail->ErrorInfo);
+                    error_log("Message could not be sent. Mailer Error: {$mail->ErrorInfo}");
                 }
             }
 
