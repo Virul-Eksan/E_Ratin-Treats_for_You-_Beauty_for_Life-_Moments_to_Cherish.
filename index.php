@@ -127,13 +127,14 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
                 </div>
 
                 <!-- Write a Review Form -->
+                <?php if (isset($_SESSION['customer_id'])): ?>
                 <div class="review-form-card">
                     <h3 class="review-form-title">Share Your Experience ✨</h3>
                     <form id="review-form" class="review-form">
                         <div class="review-form-row">
                             <div class="review-form-group">
                                 <label for="review-name">Your Name</label>
-                                <input type="text" id="review-name" placeholder="e.g. Anjali Perera" required maxlength="80">
+                                <input type="text" id="review-name" placeholder="e.g. Anjali Perera" required maxlength="80" value="<?php echo htmlspecialchars($_SESSION['customer_name'] ?? ''); ?>" readonly>
                             </div>
                             <div class="review-form-group review-stars-group">
                                 <label>Rating</label>
@@ -154,6 +155,11 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
                         <button type="submit" class="btn-submit-review" id="btn-submit-review">Post Review</button>
                     </form>
                 </div>
+                <?php else: ?>
+                <div class="review-form-card" style="text-align: center; padding: 40px;">
+                    <p style="font-size: 1.1rem; color: var(--light-text);">Please <a href="CustomerData/login.php" style="color: var(--primary-gold); font-weight: bold; text-decoration: underline;">Sign In</a> to share your review for this category.</p>
+                </div>
+                <?php endif; ?>
 
                 <!-- Review Carousel Panel -->
                 <div class="review-carousel-wrapper" id="review-carousel-wrapper">
