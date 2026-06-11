@@ -25,6 +25,15 @@ if (isset($_GET['success'])) {
         $message = "Customer removed from blacklist.";
         $active_tab = 'view-customers';
         $active_sub_tab = 'all';
+    } elseif ($_GET['success'] === 'review_approved') {
+        $message = "Review approved successfully.";
+        $active_tab = 'view-reviews';
+    } elseif ($_GET['success'] === 'review_deapproved') {
+        $message = "Review deapproved successfully.";
+        $active_tab = 'view-reviews';
+    } elseif ($_GET['success'] === 'review_deleted') {
+        $message = "Review deleted successfully.";
+        $active_tab = 'view-reviews';
     } else {
         $message = "Product added successfully.";
         $active_tab = 'view-stock';
@@ -170,6 +179,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_unblacklist'])
     }
 }
 
+// Handle Approve Review
+if (isset($_GET['approve_review'])) {
+    $id = $_GET['approve_review'];
+    $stmt = $pdo->prepare("UPDATE reviews SET is_approved = 1 WHERE id = ?");
+    if ($stmt->execute([$id])) {
+        header("Location: admin.php?success=review_approved");
+        exit();
+    }
+}
+
+// Handle Deapprove Review
+if (isset($_GET['deapprove_review'])) {
+    $id = $_GET['deapprove_review'];
+    $stmt = $pdo->prepare("UPDATE reviews SET is_approved = 0 WHERE id = ?");
+    if ($stmt->execute([$id])) {
+        header("Location: admin.php?success=review_deapproved");
+        exit();
+    }
+}
+
+// Handle Delete Review
+if (isset($_GET['delete_review'])) {
+    $id = $_GET['delete_review'];
+    $stmt = $pdo->prepare("DELETE FROM reviews WHERE id = ?");
+    if ($stmt->execute([$id])) {
+        header("Location: admin.php?success=review_deleted");
+        exit();
+    }
+}
+
 // Handle Add Product
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_product'])) {
@@ -248,6 +287,11 @@ foreach ($customers_list as $cust) {
 // Group orders by customer ID for the customer view
 $stmt_orders_all = $pdo->query("SELECT * FROM orders ORDER BY created_at DESC");
 $all_orders = $stmt_orders_all->fetchAll();
+
+// Fetch all reviews for moderation
+$stmt_reviews_all = $pdo->query("SELECT * FROM reviews ORDER BY created_at DESC");
+$all_reviews = $stmt_reviews_all->fetchAll();
+
 $orders_by_customer = [];
 foreach ($all_orders as $o) {
     if ($o['customer_id']) {
@@ -761,10 +805,51 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
         </div>
 
         <!-- Customer Reviews View -->
-        <div id="view-reviews" class="admin-view hidden">
-            <div class="card">
-                <h3>Manage Customer Reviews</h3>
-                <p>This section is for reviewing and moderating customer feedback.</p>
+        <div id="view-reviews" class="admin-view <?php echo $active_tab == 'view-reviews' ? '' : 'hidden'; ?>">
+            <div class="card manage-products-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--glass-border); margin-bottom: 25px; padding-bottom: 15px;">
+                    <h3 style="border-bottom: none; margin-bottom: 0;">Review Moderation</h3>
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Customer</th>
+                                <th>Category</th>
+                                <th>Rating</th>
+                                <th>Review</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach($all_reviews as $rev): ?>
+                            <tr>
+                                <td style="font-weight: 600;"><?php echo htmlspecialchars($rev['customer_name']); ?></td>
+                                <td><span class="badge <?php echo strtolower($rev['category']); ?>"><?php echo htmlspecialchars($rev['category']); ?></span></td>
+                                <td style="color: var(--primary-gold); font-size: 1.1rem;"><?php echo str_repeat('★', $rev['rating']); ?></td>
+                                <td style="max-width: 300px; font-style: italic; font-size: 0.9rem;"><?php echo htmlspecialchars($rev['review_text']); ?></td>
+                                <td>
+                                    <span class="badge <?php echo $rev['is_approved'] ? 'closed' : 'pending'; ?>">
+                                        <?php echo $rev['is_approved'] ? 'Approved' : 'Pending'; ?>
+                                    </span>
+                                </td>
+                                <td>
+                                    <?php if (!$rev['is_approved']): ?>
+                                        <a href="admin.php?approve_review=<?php echo $rev['id']; ?>" class="btn-ongoing" style="margin-bottom: 5px; display: inline-block; padding: 5px 10px; font-size: 0.75rem; text-transform: capitalize;">Approve</a>
+                                    <?php else: ?>
+                                        <a href="admin.php?deapprove_review=<?php echo $rev['id']; ?>" class="btn-closed" style="margin-bottom: 5px; display: inline-block; padding: 5px 10px; font-size: 0.75rem; text-transform: capitalize;">Deapprove</a>
+                                    <?php endif; ?>
+                                    <a href="admin.php?delete_review=<?php echo $rev['id']; ?>" class="btn-delete" style="padding: 5px 10px; display: inline-block; font-size: 0.75rem;" onclick="return confirm('Permanently delete this review?')">Delete</a>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                            <?php if(empty($all_reviews)): ?>
+                                <tr><td colspan="6">No reviews submitted yet.</td></tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 

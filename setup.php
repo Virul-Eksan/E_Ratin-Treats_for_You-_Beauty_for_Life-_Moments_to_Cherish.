@@ -52,6 +52,21 @@ try {
     try { $pdo->exec("ALTER TABLE customers ADD COLUMN is_blacklisted TINYINT(1) DEFAULT 0"); } catch (PDOException $e) {}
     try { $pdo->exec("ALTER TABLE customers ADD COLUMN blacklist_reason TEXT NULL"); } catch (PDOException $e) {}
 
+    // Create reviews table
+    $sql_reviews = "CREATE TABLE IF NOT EXISTS reviews (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        category VARCHAR(100) NOT NULL,
+        customer_name VARCHAR(255) NOT NULL,
+        rating INT NOT NULL,
+        review_text TEXT NOT NULL,
+        is_approved TINYINT(1) DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
+    $pdo->exec($sql_reviews);
+    
+    // Ensure reviews table has moderation column
+    try { $pdo->exec("ALTER TABLE reviews ADD COLUMN is_approved TINYINT(1) DEFAULT 0 AFTER review_text"); } catch (PDOException $e) { /* Column might already exist */ }
+
     // Create orders table
     $sql_orders = "CREATE TABLE IF NOT EXISTS orders (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -65,7 +80,7 @@ try {
         cart_details TEXT NOT NULL,
         total_amount DECIMAL(10, 2) NOT NULL,
         is_deleted TINYINT(1) DEFAULT 0,
-        is_seen TINYINT(1) DEFAULT 0,
+        is_viewed TINYINT(1) DEFAULT 0,
         status VARCHAR(20) DEFAULT 'pending',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL
@@ -77,7 +92,7 @@ try {
     try {
         $pdo->exec("ALTER TABLE orders ADD COLUMN customer_id INT NULL");
         $pdo->exec("ALTER TABLE orders ADD FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL");
-        $pdo->exec("ALTER TABLE orders ADD COLUMN is_seen TINYINT(1) DEFAULT 0");
+        $pdo->exec("ALTER TABLE orders ADD COLUMN is_viewed TINYINT(1) DEFAULT 0");
     } catch (PDOException $e) {
         // Column might already exist, which is fine
     }

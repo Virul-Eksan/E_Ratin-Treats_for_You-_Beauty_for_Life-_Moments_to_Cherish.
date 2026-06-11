@@ -111,7 +111,7 @@ if ($action === 'create_order') {
 
 if ($action === 'get_all_reviews') {
     try {
-        $stmt = $pdo->query("SELECT id, category, customer_name, rating, review_text, created_at FROM reviews ORDER BY created_at DESC");
+        $stmt = $pdo->query("SELECT id, category, customer_name, rating, review_text, created_at FROM reviews WHERE is_approved = 1 ORDER BY created_at DESC");
         $reviews = $stmt->fetchAll();
         echo json_encode(['success' => true, 'reviews' => $reviews]);
     } catch (PDOException $e) {
@@ -127,7 +127,7 @@ if ($action === 'get_reviews') {
         exit;
     }
     try {
-        $stmt = $pdo->prepare("SELECT id, customer_name, rating, review_text, created_at FROM reviews WHERE category = ? ORDER BY created_at DESC");
+        $stmt = $pdo->prepare("SELECT id, customer_name, rating, review_text, created_at FROM reviews WHERE category = ? AND is_approved = 1 ORDER BY created_at DESC");
         $stmt->execute([$category]);
         $reviews = $stmt->fetchAll();
         echo json_encode(['success' => true, 'reviews' => $reviews]);
