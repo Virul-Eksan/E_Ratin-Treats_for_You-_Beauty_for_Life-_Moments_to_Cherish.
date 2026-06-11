@@ -109,6 +109,39 @@ if ($action === 'create_order') {
     exit;
 }
 
+if ($action === 'get_admin_notifications') {
+    try {
+        // Ensure messages table exists in case api.php is hit before admin.php
+        $pdo->exec("CREATE TABLE IF NOT EXISTS messages (id INT AUTO_INCREMENT PRIMARY KEY, customer_id INT NOT NULL, subject VARCHAR(255) NOT NULL, body TEXT, is_read TINYINT(1) DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+        // Count of new orders (pending, unseen, not deleted)
+        $stmt_order_count = $pdo->query("SELECT COUNT(*) FROM orders WHERE status='pending' AND is_viewed=0 AND is_deleted=0");
+        $order_count = (int)$stmt_order_count->fetchColumn();
+
+        // Count of unread messages
+        $stmt_msg_count = $pdo->query("SELECT COUNT(*) FROM messages WHERE is_read = 0");
+        $msg_count = (int)$stmt_msg_count->fetchColumn();
+
+        // Fetch pending orders for sidebar
+        $stmt_orders = $pdo->query("SELECT id, created_at FROM orders WHERE status='pending' AND is_viewed=0 AND is_deleted=0 ORDER BY id DESC");
+        $orders = $stmt_orders->fetchAll();
+
+        // Fetch recent unread messages
+        $stmt_msgs = $pdo->query("SELECT subject, created_at FROM messages WHERE is_read = 0 ORDER BY created_at DESC LIMIT 5");
+        $messages = $stmt_msgs->fetchAll();
+
+        echo json_encode([
+            'success' => true,
+            'total_count' => $order_count + $msg_count,
+            'orders' => $orders,
+            'messages' => $messages
+        ]);
+    } catch (PDOException $e) {
+        echo json_encode(['success' => false]);
+    }
+    exit;
+}
+
 if ($action === 'get_all_reviews') {
     try {
         $stmt = $pdo->query("SELECT id, category, customer_name, rating, review_text, created_at FROM reviews WHERE is_approved = 1 ORDER BY created_at DESC");

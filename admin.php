@@ -390,7 +390,7 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
         <a href="index.php" class="btn-view" target="_blank">View Live Site</a>
         <div class="notification-wrapper" style="position: relative; display: inline-block; margin-left: 20px;">
             <span id="notificationIcon" class="notification-icon" style="cursor: pointer; font-size: 1.5rem;" title="Notifications">🔔</span>
-            <span id="notifCount" class="notif-count" style="position: absolute; top: -5px; right: -10px; background: #ef4444; color: #fff; border-radius: 50%; padding: 2px 6px; font-size: 0.8rem; pointer-events: none;"><?php echo $new_orders_count + $new_messages_count; ?></span>
+            <span id="notifCount" class="notif-count" style="position: absolute; top: -5px; right: -10px; background: #ef4444; color: #fff; border-radius: 50%; padding: 2px 6px; font-size: 0.8rem; pointer-events: none; <?php echo ($new_orders_count + $new_messages_count) > 0 ? '' : 'display: none;'; ?>"><?php echo $new_orders_count + $new_messages_count; ?></span>
         </div>
     </header>
 
@@ -1394,42 +1394,78 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
             }
 
             // Notification Item Click Logic: Navigate, Clear Search, and Scroll
-            const orderNotifItems = document.querySelectorAll('.order-notif-item');
-            orderNotifItems.forEach(item => {
-                item.addEventListener('click', () => {
-                    const orderId = item.getAttribute('data-order-id');
-                    if (!orderId) return;
+            if (notifPanel) {
+                notifPanel.addEventListener('click', (e) => {
+                    const item = e.target.closest('.order-notif-item');
+                    if (item) {
+                        const orderId = item.getAttribute('data-order-id');
+                        if (!orderId) return;
 
-                    // 1. Switch to Orders Tab
-                    const ordersNavLink = document.querySelector('.nav-link[data-target="view-orders"]');
-                    if (ordersNavLink) ordersNavLink.click();
+                        // 1. Switch to Orders Tab
+                        const ordersNavLink = document.querySelector('.nav-link[data-target="view-orders"]');
+                        if (ordersNavLink) ordersNavLink.click();
 
-                    // 2. Switch to Pending Sub-tab
-                    const pendingTabBtn = document.querySelector('.order-tab-btn[data-target="pending-orders-table"]');
-                    if (pendingTabBtn) pendingTabBtn.click();
+                        // 2. Switch to Pending Sub-tab
+                        const pendingTabBtn = document.querySelector('.order-tab-btn[data-target="pending-orders-table"]');
+                        if (pendingTabBtn) pendingTabBtn.click();
 
-                    // 3. Clear search filter to ensure row is visible
-                    const orderSearchInput = document.getElementById('orderSearchInput');
-                    if (orderSearchInput) {
-                        orderSearchInput.value = '';
-                        orderSearchInput.dispatchEvent(new Event('input'));
-                    }
-
-                    // 4. Scroll to the specific order row
-                    setTimeout(() => {
-                        const targetRow = document.querySelector(`#pending-orders-table tr[data-order-id="${orderId}"]`);
-                        if (targetRow) {
-                            targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            // Highlight effect to help identify the order
-                            targetRow.style.backgroundColor = 'rgba(52, 211, 153, 0.4)';
-                            setTimeout(() => targetRow.style.backgroundColor = '', 2000);
+                        // 3. Clear search filter to ensure row is visible
+                        const orderSearchInput = document.getElementById('orderSearchInput');
+                        if (orderSearchInput) {
+                            orderSearchInput.value = '';
+                            orderSearchInput.dispatchEvent(new Event('input'));
                         }
-                    }, 350); // Delay to allow tab switching animation
 
-                    // 5. Close notification panel
-                    if (notifPanel) notifPanel.classList.add('hidden');
+                        // 4. Scroll to the specific order row
+                        setTimeout(() => {
+                            const targetRow = document.querySelector(`#pending-orders-table tr[data-order-id="${orderId}"]`);
+                            if (targetRow) {
+                                targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                targetRow.style.backgroundColor = 'rgba(52, 211, 153, 0.4)';
+                                setTimeout(() => targetRow.style.backgroundColor = '', 2000);
+                            }
+                        }, 350);
+
+                        // 5. Close notification panel
+                        notifPanel.classList.add('hidden');
+                    }
                 });
-            });
+            }
+
+            // Live Notifications Polling
+            async function refreshAdminNotifications() {
+                try {
+                    const res = await fetch('api.php?action=get_admin_notifications');
+                    const data = await res.json();
+                    if (data.success) {
+                        // Update Badge
+                        const badge = document.getElementById('notifCount');
+                        if (badge) {
+                            badge.innerText = data.total_count;
+                            badge.style.display = data.total_count > 0 ? 'block' : 'none';
+                        }
+
+                        // Update Orders List
+                        const ordersUl = document.getElementById('notif-orders-list');
+                        if (ordersUl) {
+                            ordersUl.innerHTML = data.orders.length > 0 
+                                ? data.orders.map(o => `<li class="order-notif-item" data-order-id="${o.id}" style="background:rgba(52, 211, 153, 0.08); border: 1px solid rgba(52, 211, 153, 0.15); padding:12px; margin:10px 0; border-radius:10px; font-size:0.9rem; color:#a7f3d0; cursor:pointer; transition: 0.2s;"><div style="display:flex; justify-content:space-between; margin-bottom: 4px;"><strong>Order #${o.id}</strong><span style="color:#34d399; font-size: 0.7rem;">PENDING</span></div><span style="font-size: 0.8rem; opacity: 0.7;">${new Date(o.created_at).toLocaleString('en-US', {month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'numeric', hour12:true})}</span></li>`).join('')
+                                : '<li style="color: #94a3b8; font-size: 0.9rem; padding: 10px; background: rgba(255,255,255,0.03); border-radius: 8px; text-align: center;">No new orders</li>';
+                        }
+
+                        // Update Messages List
+                        const msgsUl = document.getElementById('notif-messages-list');
+                        if (msgsUl) {
+                            msgsUl.innerHTML = data.messages.length > 0
+                                ? data.messages.map(m => `<li style="background:rgba(96, 165, 250, 0.08); border: 1px solid rgba(96, 165, 250, 0.15); padding:12px; margin:10px 0; border-radius:10px; font-size:0.9rem; color:#bfdbfe;"><strong>${m.subject || 'Message'}</strong><br><span style="font-size: 0.8rem; opacity: 0.7;">${new Date(m.created_at).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'})}</span></li>`).join('')
+                                : '<li style="color: #94a3b8; font-size: 0.9rem; padding: 10px; background: rgba(255,255,255,0.03); border-radius: 8px; text-align: center;">No unread messages</li>';
+                        }
+                    }
+                } catch (e) { console.error("Notif update error", e); }
+            }
+
+            // Start Polling every 10 seconds
+            setInterval(refreshAdminNotifications, 10000);
 
             if (closeNotifBtn && notifPanel) {
                 closeNotifBtn.addEventListener('click', () => {
@@ -1488,7 +1524,7 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
         
         <div style="margin-bottom: 30px;">
             <h4 style="margin:0 0 15px; color:#34d399; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px;">New Orders</h4>
-            <ul style="list-style:none; padding:0; margin:0;">
+            <ul id="notif-orders-list" style="list-style:none; padding:0; margin:0;">
                 <?php foreach($pending_orders as $order): ?>
                     <li class="order-notif-item" data-order-id="<?php echo $order['id']; ?>" style="background:rgba(52, 211, 153, 0.08); border: 1px solid rgba(52, 211, 153, 0.15); padding:12px; margin:10px 0; border-radius:10px; font-size:0.9rem; color:#a7f3d0; cursor:pointer; transition: 0.2s;">
                         <div style="display:flex; justify-content:space-between; margin-bottom: 4px;">
@@ -1506,7 +1542,7 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
 
         <div>
             <h4 style="margin:0 0 15px; color:#60a5fa; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px;">Unread Messages</h4>
-            <ul style="list-style:none; padding:0; margin:0;">
+            <ul id="notif-messages-list" style="list-style:none; padding:0; margin:0;">
                 <?php
                 $stmt_msgs = $pdo->query("SELECT * FROM messages WHERE is_read = 0 ORDER BY created_at DESC LIMIT 5");
                 $messages = $stmt_msgs->fetchAll();
