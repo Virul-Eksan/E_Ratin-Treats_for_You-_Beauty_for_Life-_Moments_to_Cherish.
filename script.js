@@ -11,7 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const fetchProducts = async () => {
         try {
-            const response = await fetch('api.php?action=get_products');
+            const response = await fetch(`api.php?action=get_products&_t=${Date.now()}`, { cache: 'no-store' });
             const data = await response.json();
             if (data.success) {
                 allProducts = data.products;
@@ -420,6 +420,66 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Initial fetch
     fetchProducts();
+
+    // --- Live Stock Update ---
+    setInterval(async () => {
+        try {
+            const response = await fetch(`api.php?action=get_products&_t=${Date.now()}`, { cache: 'no-store' });
+            const data = await response.json();
+            if (data.success) {
+                let changed = false;
+                if (allProducts.length !== data.products.length) {
+                    changed = true;
+                } else {
+                    for (const newP of data.products) {
+                        const oldP = allProducts.find(p => p.id === newP.id);
+                        if (!oldP || parseInt(oldP.stock) !== parseInt(newP.stock)) {
+                            changed = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (changed) {
+                    console.log("Live stock update detected! Re-rendering products...");
+                    allProducts = data.products;
+                    if (typeof renderSliders === 'function') renderSliders();
+                    
+                    const catTitleEl = document.getElementById('category-title');
+                    let currentCat = 'All';
+                    if (catTitleEl && catTitleEl.textContent) {
+                        currentCat = catTitleEl.textContent === 'All Items' ? 'All' : catTitleEl.textContent;
+                    }
+                    
+                    if (currentCat === 'All') {
+                        renderProducts(allProducts);
+                    } else {
+                        renderProducts(allProducts.filter(p => p.category === currentCat));
+                    }
+                    
+                    // Sync cart stock
+                    let cartChanged = false;
+                    cart.forEach(item => {
+                        const p = allProducts.find(prod => prod.id == item.id);
+                        if (p) {
+                            const maxStock = parseInt(p.stock) || 0;
+                            if (item.quantity > maxStock) {
+                                item.quantity = maxStock;
+                                cartChanged = true;
+                            }
+                        }
+                    });
+                    if (cartChanged) {
+                        cart = cart.filter(item => item.quantity > 0);
+                        saveCart();
+                        updateCartUI();
+                    }
+                }
+            }
+        } catch (err) {
+            console.error("Live stock polling failed:", err);
+        }
+    }, 5000);
 
     // --- Toast Notification System ---
     const toastContainer = document.createElement('div');

@@ -327,6 +327,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
     <script>
         const isLoggedIn = <?php echo isset($_SESSION['customer_id']) ? 'true' : 'false'; ?>;
     </script>
-    <script src="script.js?v=11"></script>
+    <script src="script.js?v=<?php echo time(); ?>"></script>
 </body>
 </html>
