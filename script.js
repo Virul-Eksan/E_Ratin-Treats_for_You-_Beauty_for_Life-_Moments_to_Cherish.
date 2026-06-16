@@ -15,7 +15,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const data = await response.json();
             if (data.success) {
                 allProducts = data.products;
-                if(typeof renderSliders === 'function') renderSliders();
+                if (typeof renderSliders === 'function') renderSliders();
                 renderProducts(allProducts);
             } else {
                 productsGrid.innerHTML = '<p>Error loading products...</p>';
@@ -39,8 +39,8 @@ document.addEventListener("DOMContentLoaded", () => {
             const catClass = `badge-${product.category.toLowerCase()}`;
 
             const isSoldOut = parseInt(product.stock) <= 0;
-            const buttonHtml = isSoldOut 
-                ? `<button class="btn-buy" style="background: #334155; color: #94a3b8; cursor: not-allowed;" disabled>Sold Out</button>` 
+            const buttonHtml = isSoldOut
+                ? `<button class="btn-buy" style="background: #334155; color: #94a3b8; cursor: not-allowed;" disabled>Sold Out</button>`
                 : `<button class="btn-buy" onclick="addToCart(${product.id})">Add to Cart</button>`;
 
             card.innerHTML = `
@@ -65,9 +65,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const sliderCosmetics = document.getElementById('slider-cosmetics');
         const sliderNuts = document.getElementById('slider-nuts');
 
-        if(sliderChocolates) sliderChocolates.innerHTML = '';
-        if(sliderCosmetics) sliderCosmetics.innerHTML = '';
-        if(sliderNuts) sliderNuts.innerHTML = '';
+        if (sliderChocolates) sliderChocolates.innerHTML = '';
+        if (sliderCosmetics) sliderCosmetics.innerHTML = '';
+        if (sliderNuts) sliderNuts.innerHTML = '';
 
         allProducts.forEach(product => {
             const card = document.createElement('div');
@@ -95,12 +95,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const btnBackHome = document.getElementById('btn-back-home');
 
     window.openCategoryView = (category) => {
-        if(homeView && categoryView) {
+        if (homeView && categoryView) {
             homeView.classList.add('hidden-view');
             categoryView.classList.remove('hidden-view');
         }
-        
-        if(categoryTitle) {
+
+        if (categoryTitle) {
             categoryTitle.textContent = category === 'All' ? 'All Items' : category;
         }
 
@@ -119,14 +119,14 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     window.openHomeView = () => {
-        if(homeView && categoryView) {
+        if (homeView && categoryView) {
             categoryView.classList.add('hidden-view');
             homeView.classList.remove('hidden-view');
         }
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    if(btnBackHome) {
+    if (btnBackHome) {
         btnBackHome.addEventListener('click', openHomeView);
     }
 
@@ -159,7 +159,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // --- Cart Logic ---
     let cart = JSON.parse(localStorage.getItem('eratincart')) || [];
-    
+
     const saveCart = () => {
         localStorage.setItem('eratincart', JSON.stringify(cart));
     };
@@ -237,14 +237,14 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
             cart.push({ ...product, quantity: 1 });
         }
-        
+
         saveCart();
-        
+
         // Pulse animation
         cartBtn.classList.remove('pulse');
         void cartBtn.offsetWidth; // trigger reflow
         cartBtn.classList.add('pulse');
-        
+
         updateCartUI();
         showToast(`${product.name} added to cart!`);
     };
@@ -282,7 +282,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // Update badge
         const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
         cartBadge.textContent = totalItems;
-        
+
         // Render items
         cartItemsContainer.innerHTML = '';
         let totalPrice = 0;
@@ -315,10 +315,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Update total
         cartTotalPrice.textContent = '$' + totalPrice.toFixed(2);
-        
+
         // Also update modal total if it exists
         const coTotal = document.getElementById('co-total-amount');
-        if(coTotal) coTotal.textContent = '$' + totalPrice.toFixed(2);
+        if (coTotal) coTotal.textContent = '$' + totalPrice.toFixed(2);
     };
 
     // --- Checkout Logic ---
@@ -327,7 +327,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const closeCheckoutBtn = document.getElementById('close-checkout');
     const checkoutForm = document.getElementById('checkout-form');
 
-    if(btnCheckout) {
+    const orderSuccessModal = document.getElementById('order-success-modal');
+    const btnCloseSuccess = document.getElementById('btn-close-success');
+
+    if (btnCloseSuccess) {
+        btnCloseSuccess.addEventListener('click', () => {
+            orderSuccessModal.classList.add('hidden');
+            if (orderSuccessModal.classList.contains('show')) orderSuccessModal.classList.remove('show');
+        });
+    }
+
+    if (btnCheckout) {
         btnCheckout.addEventListener('click', () => {
             if (cart.length === 0) {
                 alert('Your cart is empty!');
@@ -342,16 +352,16 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    if(closeCheckoutBtn) {
+    if (closeCheckoutBtn) {
         closeCheckoutBtn.addEventListener('click', () => {
             checkoutModal.classList.add('hidden');
         });
     }
 
-    if(checkoutForm) {
+    if (checkoutForm) {
         checkoutForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            
+
             if (cart.length === 0) return;
 
             const submitBtn = checkoutForm.querySelector('.btn-confirm');
@@ -376,18 +386,27 @@ document.addEventListener("DOMContentLoaded", () => {
                     body: JSON.stringify(orderData)
                 });
                 const data = await response.json();
-                
+                console.log("Order success status:", data.success);
+
                 if (data.success) {
-                    alert('Order placed successfully!');
                     cart = [];
                     saveCart();
                     updateCartUI();
                     checkoutForm.reset();
                     checkoutModal.classList.add('hidden');
+
+                    if (orderSuccessModal) {
+                        orderSuccessModal.classList.remove('hidden');
+                        orderSuccessModal.classList.add('show');
+                        console.log("Popup classes after removal:", orderSuccessModal.className);
+                    } else {
+                        console.error("orderSuccessModal is null!");
+                    }
                 } else {
                     alert('Failed to place order: ' + data.message);
                 }
             } catch (err) {
+                console.error("Checkout Fetch Error:", err);
                 alert('An error occurred while placing the order.');
             } finally {
                 submitBtn.disabled = false;
@@ -395,7 +414,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         });
     }
-    
+
     // Initial UI render
     updateCartUI();
 
@@ -428,11 +447,11 @@ document.addEventListener("DOMContentLoaded", () => {
     let reviewsData = [];
 
     const reviewCarouselTrack = document.getElementById('review-carousel-track');
-    const reviewCarouselDots  = document.getElementById('review-carousel-dots');
-    const reviewEmptyMsg      = document.getElementById('review-empty-msg');
-    const reviewForm          = document.getElementById('review-form');
-    const starRatingEl        = document.getElementById('star-rating');
-    const reviewRatingInput   = document.getElementById('review-rating');
+    const reviewCarouselDots = document.getElementById('review-carousel-dots');
+    const reviewEmptyMsg = document.getElementById('review-empty-msg');
+    const reviewForm = document.getElementById('review-form');
+    const starRatingEl = document.getElementById('star-rating');
+    const reviewRatingInput = document.getElementById('review-rating');
 
     // --- Star Rating Interaction ---
     if (starRatingEl) {
@@ -459,11 +478,11 @@ document.addEventListener("DOMContentLoaded", () => {
         reviewCarouselIndex = 0;
         clearInterval(reviewCarouselTimer);
         if (reviewCarouselTrack) reviewCarouselTrack.innerHTML = '';
-        if (reviewCarouselDots)  reviewCarouselDots.innerHTML  = '';
+        if (reviewCarouselDots) reviewCarouselDots.innerHTML = '';
         if (reviewEmptyMsg) reviewEmptyMsg.style.display = 'none';
 
         try {
-            const res  = await fetch(`api.php?action=get_reviews&category=${encodeURIComponent(category)}`);
+            const res = await fetch(`api.php?action=get_reviews&category=${encodeURIComponent(category)}`);
             const data = await res.json();
             if (data.success) {
                 reviewsData = data.reviews;
@@ -478,7 +497,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const renderReviewCarousel = (reviews) => {
         if (!reviewCarouselTrack || !reviewCarouselDots) return;
         reviewCarouselTrack.innerHTML = '';
-        reviewCarouselDots.innerHTML  = '';
+        reviewCarouselDots.innerHTML = '';
 
         if (reviews.length === 0) {
             if (reviewEmptyMsg) reviewEmptyMsg.style.display = 'block';
@@ -491,7 +510,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const card = document.createElement('div');
             card.className = 'review-card';
             const stars = '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating);
-            const date  = new Date(r.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+            const date = new Date(r.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
             card.innerHTML = `
                 <div class="review-card-header">
                     <div class="review-avatar">${r.customer_name.charAt(0).toUpperCase()}</div>
@@ -526,31 +545,31 @@ document.addEventListener("DOMContentLoaded", () => {
     const goToSlide = (index) => {
         reviewCarouselIndex = index;
         const cards = reviewCarouselTrack ? reviewCarouselTrack.querySelectorAll('.review-card') : [];
-        const dots  = reviewCarouselDots  ? reviewCarouselDots.querySelectorAll('.review-dot')  : [];
+        const dots = reviewCarouselDots ? reviewCarouselDots.querySelectorAll('.review-dot') : [];
         cards.forEach((c, i) => c.classList.toggle('active', i === index));
-        dots.forEach((d, i)  => d.classList.toggle('active', i === index));
+        dots.forEach((d, i) => d.classList.toggle('active', i === index));
     };
 
     // Helper
-    const escapeHtml = (str) => str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const escapeHtml = (str) => str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
     // --- Submit Review ---
     if (reviewForm) {
         reviewForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const name   = document.getElementById('review-name').value.trim();
+            const name = document.getElementById('review-name').value.trim();
             const rating = parseInt(reviewRatingInput.value);
-            const text   = document.getElementById('review-text').value.trim();
+            const text = document.getElementById('review-text').value.trim();
 
             if (!name || !text) { showToast('Please fill all fields.'); return; }
-            if (rating < 1)     { showToast('Please select a star rating.'); return; }
+            if (rating < 1) { showToast('Please select a star rating.'); return; }
 
             const btn = document.getElementById('btn-submit-review');
             btn.disabled = true;
             btn.textContent = 'Posting...';
 
             try {
-                const res  = await fetch('api.php?action=submit_review', {
+                const res = await fetch('api.php?action=submit_review', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ category: currentReviewCategory, customer_name: name, rating, review_text: text })
@@ -595,15 +614,15 @@ document.addEventListener("DOMContentLoaded", () => {
     // =============================================
     let homeReviewIndex = 0;
     let homeReviewTimer = null;
-    let homeReviewsAll  = [];
+    let homeReviewsAll = [];
 
     const homeTrack = document.getElementById('home-reviews-track');
-    const homeDots  = document.getElementById('home-reviews-dots');
+    const homeDots = document.getElementById('home-reviews-dots');
     const homeEmpty = document.getElementById('home-reviews-empty');
 
     const loadAllReviews = async () => {
         try {
-            const res  = await fetch('api.php?action=get_all_reviews');
+            const res = await fetch('api.php?action=get_all_reviews');
             const data = await res.json();
             if (data.success) {
                 homeReviewsAll = data.reviews;
@@ -615,7 +634,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const renderHomeReviews = (reviews) => {
         if (!homeTrack || !homeDots) return;
         homeTrack.innerHTML = '';
-        homeDots.innerHTML  = '';
+        homeDots.innerHTML = '';
         clearInterval(homeReviewTimer);
 
         if (reviews.length === 0) {
@@ -630,7 +649,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const card = document.createElement('div');
             card.className = 'home-review-card';
             const filled = '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating);
-            const date   = new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const date = new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
             const catColor = catColors[r.category] || 'var(--primary-gold)';
             card.innerHTML = `
                 <div class="home-review-top">
@@ -667,9 +686,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const goHomeSlide = (index) => {
         homeReviewIndex = index;
         const cards = homeTrack ? homeTrack.querySelectorAll('.home-review-card') : [];
-        const dots  = homeDots  ? homeDots.querySelectorAll('.home-review-dot')  : [];
+        const dots = homeDots ? homeDots.querySelectorAll('.home-review-dot') : [];
         cards.forEach((c, i) => c.classList.toggle('active', i === index));
-        dots.forEach((d, i)  => d.classList.toggle('active', i === index));
+        dots.forEach((d, i) => d.classList.toggle('active', i === index));
     };
 
     // Load all reviews on page init

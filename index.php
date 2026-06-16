@@ -24,6 +24,66 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
         <h2>Welcome to ඒ රtin...</h2>
     </div>
 
+    <!-- Order Success Modal -->
+    <div id="order-success-modal" class="modal-overlay hidden" style="z-index: 99999;">
+        <div class="checkout-modal-content" style="text-align: center; max-width: 450px; padding: 40px; border: 2px solid var(--primary-gold); background: var(--bg-dark); color: white; position: relative;">
+            <div class="success-icon" style="font-size: 4rem; margin-bottom: 20px;">🎉</div>
+            <h2 style="color: var(--primary-gold); margin-bottom: 15px;">Order Placed!</h2>
+            <p style="font-size: 1.2rem; line-height: 1.6; color: var(--light-text); margin-bottom: 30px;">
+                Ready your <span style="color: var(--primary-pink); font-weight: 800; text-shadow: 0 0 10px rgba(255, 51, 102, 0.3);">Order Status</span>,<br> 
+                View your <span class="highlight-profile">Beautiful Profile</span>
+            </p>
+            
+            <div style="position: relative; display: inline-block;">
+                <a href="CustomerData/profile.php" class="btn-confirm pulse-button" style="display: flex; align-items: center; gap: 15px; padding: 18px 35px; text-decoration: none; font-size: 1.2rem; background: var(--primary-gold); border-radius: 50px; box-shadow: 0 10px 25px rgba(196, 138, 90, 0.4); color: white; font-weight: bold;">
+                    Check Profile <span class="bounce-arrow">➔</span>
+                </a>
+            </div>
+            <button id="btn-close-success" style="display: block; margin: 20px auto 0; background: none; border: none; color: #94a3b8; text-decoration: underline; cursor: pointer;">Stay on Shop</button>
+        </div>
+    </div>
+
+    <style>
+        /* Ensure Success Modal is visible when hidden is removed */
+        #order-success-modal:not(.hidden) {
+            display: flex !important;
+            opacity: 1 !important;
+            pointer-events: all !important;
+        }
+        .highlight-profile {
+            background: linear-gradient(120deg, #f6d365 0%, #fda085 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 800;
+            font-size: 1.5rem;
+            filter: drop-shadow(0 0 5px rgba(246, 211, 101, 0.5));
+        }
+        @keyframes bounceRight {
+            0%, 100% { transform: translateX(0); }
+            50% { transform: translateX(8px); }
+        }
+        .bounce-arrow {
+            display: inline-block;
+            animation: bounceRight 0.8s infinite;
+            font-size: 1.4rem;
+        }
+        @keyframes pulseGlow {
+            0% { box-shadow: 0 0 0 0 rgba(196, 138, 90, 0.7); }
+            70% { box-shadow: 0 0 0 15px rgba(196, 138, 90, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(196, 138, 90, 0); }
+        }
+        .pulse-button {
+            animation: pulseGlow 2s infinite;
+        }
+        #order-success-modal .checkout-modal-content {
+            animation: popIn 0.5s cubic-bezier(0.26, 0.53, 0.74, 1.48);
+        }
+        @keyframes popIn {
+            0% { opacity: 0; transform: scale(0.5); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+    </style>
+
     <header class="main-header">
         <nav class="navbar">
             <div class="logo"><img src="logo.jpg" alt="Logo" class="brand-logo"> <span class="brand-name">ඒ රtin</span></div>
