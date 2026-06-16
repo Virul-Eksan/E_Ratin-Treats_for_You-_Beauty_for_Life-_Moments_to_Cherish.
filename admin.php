@@ -482,8 +482,16 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                                 <td>
                                     <form action="admin.php" method="POST" style="display: flex; gap: 5px; align-items: center; justify-content: center;">
                                         <input type="hidden" name="update_stock_id" value="<?php echo $p['id']; ?>">
-                                        <input type="number" name="new_stock" value="<?php echo htmlspecialchars($p['stock'] ?? 0); ?>" min="0" style="width: 60px; padding: 4px; border-radius: 4px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.2); color: white;">
+                                        <input type="number" name="new_stock"
+                                            data-product-id="<?php echo $p['id']; ?>"
+                                            value="<?php echo htmlspecialchars($p['stock'] ?? 0); ?>"
+                                            min="0"
+                                            style="width: 60px; padding: 4px; border-radius: 4px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.2); color: white; transition: background 0.4s;">
                                         <button type="submit" name="update_stock" class="btn-submit" style="padding: 4px 10px; font-size: 0.8rem; border-radius: 4px;">Save</button>
+                                        <span class="live-stock-dot"
+                                            data-product-id="<?php echo $p['id']; ?>"
+                                            title="Live: <?php echo (int)($p['stock'] ?? 0); ?> in stock"
+                                            style="font-size: 0.85rem; cursor: default; transition: color 0.4s; color: <?php echo ((int)($p['stock'] ?? 0)) <= 0 ? '#ef4444' : '#34d399'; ?>;">&#9679;</span>
                                     </form>
                                 </td>
                                 <td>
@@ -1512,6 +1520,45 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                 window.addEventListener('resize', checkScroll);
                 setTimeout(checkScroll, 100);
             }
+
+            // =============================================
+            // --- Admin Live Stock Polling ---
+            // =============================================
+            async function refreshAdminStock() {
+                try {
+                    const res = await fetch(`api.php?action=get_products&_t=${Date.now()}`, { cache: 'no-store' });
+                    const data = await res.json();
+                    if (!data.success) return;
+
+                    data.products.forEach(p => {
+                        const stockInput = document.querySelector(`input[data-product-id="${p.id}"]`);
+                        const dot = document.querySelector(`.live-stock-dot[data-product-id="${p.id}"]`);
+                        const newStock = parseInt(p.stock) || 0;
+
+                        // Update input only if admin is NOT currently typing in it
+                        if (stockInput && document.activeElement !== stockInput) {
+                            const currentVal = parseInt(stockInput.value);
+                            if (currentVal !== newStock) {
+                                stockInput.value = newStock;
+                                // Flash green to signal a live update
+                                stockInput.style.background = 'rgba(52, 211, 153, 0.25)';
+                                setTimeout(() => { stockInput.style.background = 'rgba(0,0,0,0.2)'; }, 1200);
+                            }
+                        }
+
+                        // Update live dot color: green = in stock, red = sold out
+                        if (dot) {
+                            dot.style.color = newStock <= 0 ? '#ef4444' : '#34d399';
+                            dot.title = newStock <= 0 ? 'Sold Out (live)' : `Live: ${newStock} in stock`;
+                        }
+                    });
+                } catch(e) { console.error('Admin live stock poll failed:', e); }
+            }
+
+            // Poll every 5 seconds and run once immediately on load
+            refreshAdminStock();
+            setInterval(refreshAdminStock, 5000);
+
         });
     </script>
 

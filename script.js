@@ -395,6 +395,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     checkoutForm.reset();
                     checkoutModal.classList.add('hidden');
 
+                    // Immediately refresh stock from server so cards update to "Sold Out" without waiting for the poll
+                    fetchProducts();
+
                     if (orderSuccessModal) {
                         orderSuccessModal.classList.remove('hidden');
                         orderSuccessModal.classList.add('show');
