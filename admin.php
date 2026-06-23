@@ -14,6 +14,9 @@ if (isset($_GET['success'])) {
     } elseif ($_GET['success'] === 'stock') {
         $message = "Stock updated successfully.";
         $active_tab = 'view-stock';
+    } elseif ($_GET['success'] === 'perm_delete') {
+        $order_message = "Order permanently deleted.";
+        $active_tab = 'view-orders';
     } elseif ($_GET['success'] === 'price') {
         $message = "Price updated successfully.";
         $active_tab = 'view-stock';
@@ -98,6 +101,16 @@ if (isset($_GET['undo_order'])) {
     if ($undo_stmt->execute([$order_id])) {
         $order_message = "Order restored successfully.";
         $active_tab = 'view-orders';
+    }
+}
+
+// Handle Permanent Delete Order
+if (isset($_GET['perm_delete_order'])) {
+    $order_id = (int)$_GET['perm_delete_order'];
+    $perm_stmt = $pdo->prepare("DELETE FROM orders WHERE id = ? AND is_deleted = 1");
+    if ($perm_stmt->execute([$order_id])) {
+        header("Location: admin.php?success=perm_delete");
+        exit();
     }
 }
 
@@ -325,6 +338,7 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
     <meta charset="UTF-8">
     <title>Admin Dashboard - ඒ රtin (E RATIN)</title>
     <link rel="stylesheet" href="admin.css?v=5">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         .nav-scroll-wrapper {
             position: relative;
@@ -384,6 +398,7 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                     <a href="#" class="nav-link <?php echo $active_tab == 'view-customers' ? 'active' : ''; ?>" data-target="view-customers">Customers</a>
                     <a href="#" class="nav-link <?php echo $active_tab == 'view-email' ? 'active' : ''; ?>" data-target="view-email">Email Template</a>
                     <a href="#" class="nav-link" data-target="view-reviews">Customer Reviews</a>
+                    <a href="#" class="nav-link" data-target="view-stock-report">📊 Stock Report</a>
                 </nav>
                 <button class="nav-arrow right" id="nav-next">&#9654;</button>
             </div>
@@ -727,9 +742,11 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                         <?php foreach($deleted_orders as $o): 
                             $items = json_decode($o['cart_details'], true);
                             $itemsList = '';
-                            if($items) {
+                            if(is_array($items)) {
                                 foreach($items as $item) {
-                                    $itemsList .= htmlspecialchars($item['name']) . ' (x' . $item['quantity'] . ')<br>';
+                                    $itemName = htmlspecialchars($item['name'] ?? 'Unknown Item');
+                                    $itemQty  = (int)($item['quantity'] ?? 1);
+                                    $itemsList .= $itemName . ' (x' . $itemQty . ')<br>';
                                 }
                             }
                         ?>
@@ -747,8 +764,9 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                             </td>
                             <td style="font-size: 0.9em;"><?php echo $itemsList; ?></td>
                             <td style="font-weight: bold; color: var(--primary-pink);">$<?php echo htmlspecialchars($o['total_amount']); ?></td>
-                            <td>
-                                <a href="admin.php?undo_order=<?php echo $o['id']; ?>" style="padding: 6px 14px; font-size: 0.85rem; text-decoration: none; background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); border-radius: 8px; font-weight: 600;">Restore</a>
+                            <td style="display: flex; gap: 5px; flex-direction: column;">
+                                <a href="admin.php?undo_order=<?php echo $o['id']; ?>" style="padding: 6px 14px; font-size: 0.85rem; text-decoration: none; background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); border-radius: 8px; font-weight: 600; text-align:center;">Restore</a>
+                                <a href="admin.php?perm_delete_order=<?php echo $o['id']; ?>" class="btn-delete" onclick="confirmDeletion(event, this.href, 'order');" style="text-align:center;">Delete Permanently</a>
                             </td>
                         </tr>
                         <?php endforeach; ?>
@@ -775,6 +793,91 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                     <?php if(empty($products)): ?>
                         <p>No images found.</p>
                     <?php endif; ?>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stock Report View -->
+        <div id="view-stock-report" class="admin-view hidden">
+
+            <!-- Header Card -->
+            <div class="card" style="margin-bottom:20px; padding:20px 25px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                <div>
+                    <h3 style="margin:0 0 4px; font-size:1.4rem;">📊 Stock Report</h3>
+                    <p style="margin:0; color:#94a3b8; font-size:0.88rem;">Live analytics — auto-refreshes every 30 seconds when this tab is open</p>
+                </div>
+                <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                    <span id="report-last-updated" style="font-size:0.8rem; color:#94a3b8; background:rgba(255,255,255,0.05); padding:5px 12px; border-radius:20px; border:1px solid rgba(255,255,255,0.08);">Not loaded yet</span>
+                    <a href="sales_report.php" target="_blank"
+                       style="display:inline-flex; align-items:center; gap:7px; background:linear-gradient(135deg,#d4a017,#f59e0b); color:#0f172a; font-weight:700; font-size:0.88rem; padding:9px 20px; border-radius:25px; text-decoration:none; box-shadow:0 4px 15px rgba(212,160,23,0.35); transition:all .2s;"
+                       onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'">
+                        📄 Download Sales Report
+                    </a>
+                </div>
+            </div>
+
+            <!-- Summary Stat Cards -->
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:16px; margin-bottom:22px;">
+                <div class="card" style="padding:22px; text-align:center; background:linear-gradient(135deg,rgba(52,211,153,0.1),rgba(16,185,129,0.04)); border:1px solid rgba(52,211,153,0.25);">
+                    <div id="stat-total-products" style="font-size:2.2rem; font-weight:700; color:#34d399;">—</div>
+                    <div style="color:#94a3b8; font-size:0.82rem; margin-top:5px;">Total Products</div>
+                </div>
+                <div class="card" style="padding:22px; text-align:center; background:linear-gradient(135deg,rgba(96,165,250,0.1),rgba(59,130,246,0.04)); border:1px solid rgba(96,165,250,0.25);">
+                    <div id="stat-total-stock" style="font-size:2.2rem; font-weight:700; color:#60a5fa;">—</div>
+                    <div style="color:#94a3b8; font-size:0.82rem; margin-top:5px;">Units in Stock</div>
+                </div>
+                <div class="card" style="padding:22px; text-align:center; background:linear-gradient(135deg,rgba(251,191,36,0.1),rgba(245,158,11,0.04)); border:1px solid rgba(251,191,36,0.25);">
+                    <div id="stat-sold-7d" style="font-size:2.2rem; font-weight:700; color:#fbbf24;">—</div>
+                    <div style="color:#94a3b8; font-size:0.82rem; margin-top:5px;">Units Sold (7 Days)</div>
+                </div>
+                <div class="card" style="padding:22px; text-align:center; background:linear-gradient(135deg,rgba(239,68,68,0.1),rgba(220,38,38,0.04)); border:1px solid rgba(239,68,68,0.25);">
+                    <div id="stat-sold-out" style="font-size:2.2rem; font-weight:700; color:#f87171;">—</div>
+                    <div style="color:#94a3b8; font-size:0.82rem; margin-top:5px;">Sold Out Products</div>
+                </div>
+            </div>
+
+            <!-- Charts Row 1: Daily Sales + Category Doughnut -->
+            <div style="display:grid; grid-template-columns:2fr 1fr; gap:20px; margin-bottom:20px;">
+                <div class="card" style="padding:24px;">
+                    <h4 style="margin:0 0 18px; color:var(--primary-pink);">📈 Daily Units Sold — Last 7 Days</h4>
+                    <div style="position:relative; height:270px;"><canvas id="chart-daily-sales"></canvas></div>
+                </div>
+                <div class="card" style="padding:24px;">
+                    <h4 style="margin:0 0 18px; color:var(--primary-pink);">🥧 Sales by Category — 30 Days</h4>
+                    <div style="position:relative; height:270px;"><canvas id="chart-category-sales"></canvas></div>
+                </div>
+            </div>
+
+            <!-- Charts Row 2: Remaining Stock + Top Products -->
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px;">
+                <div class="card" style="padding:24px;">
+                    <h4 style="margin:0 0 18px; color:var(--primary-pink);">📦 Remaining Stock per Product</h4>
+                    <div style="position:relative; height:300px;"><canvas id="chart-stock-levels"></canvas></div>
+                </div>
+                <div class="card" style="padding:24px;">
+                    <h4 style="margin:0 0 18px; color:var(--primary-pink);">🏆 Top Products Sold — 7 Days</h4>
+                    <div style="position:relative; height:300px;"><canvas id="chart-top-products"></canvas></div>
+                </div>
+            </div>
+
+            <!-- Full Stock Status Table -->
+            <div class="card" style="padding:24px;">
+                <h4 style="margin:0 0 18px; color:var(--primary-pink);">🗂️ Full Stock Status</h4>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Category</th>
+                                <th>Stock Remaining</th>
+                                <th>Sold (7 Days)</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stock-report-tbody">
+                            <tr><td colspan="5" style="text-align:center; color:#94a3b8; padding:30px;">Click "Stock Report" to load data…</td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -1558,6 +1661,159 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
             // Poll every 5 seconds and run once immediately on load
             refreshAdminStock();
             setInterval(refreshAdminStock, 5000);
+
+            // =============================================
+            // --- Stock Report Charts ---
+            // =============================================
+            const stockCharts = {};
+
+            async function loadStockReport() {
+                try {
+                    const res = await fetch(`api.php?action=get_stock_report&_t=${Date.now()}`, { cache: 'no-store' });
+                    const data = await res.json();
+                    if (!data.success) return;
+
+                    // --- Stat Cards ---
+                    const totalStock = data.products.reduce((s, p) => s + parseInt(p.stock || 0), 0);
+                    const sold7d     = data.daily_sales.reduce((s, v) => s + v, 0);
+                    const soldOut    = data.products.filter(p => parseInt(p.stock || 0) <= 0).length;
+                    document.getElementById('stat-total-products').textContent = data.products.length;
+                    document.getElementById('stat-total-stock').textContent    = totalStock;
+                    document.getElementById('stat-sold-7d').textContent        = sold7d;
+                    document.getElementById('stat-sold-out').textContent       = soldOut;
+                    document.getElementById('report-last-updated').textContent = `Updated: ${new Date().toLocaleTimeString()}`;
+
+                    const gridOpts = (extra = {}) => ({
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { labels: { color: 'rgba(255,255,255,0.65)', font: { size: 12 } } } },
+                        scales: {
+                            x: { ticks: { color: '#94a3b8', font: { size: 11 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                            y: { ticks: { color: '#94a3b8', font: { size: 11 } }, grid: { color: 'rgba(255,255,255,0.06)' }, beginAtZero: true }
+                        },
+                        ...extra
+                    });
+
+                    // --- Chart 1: Daily Sales Bar ---
+                    const c1 = document.getElementById('chart-daily-sales');
+                    if (c1) {
+                        if (stockCharts.daily) stockCharts.daily.destroy();
+                        stockCharts.daily = new Chart(c1, {
+                            type: 'bar',
+                            data: {
+                                labels: data.daily_labels,
+                                datasets: [{
+                                    label: 'Units Sold',
+                                    data: data.daily_sales,
+                                    backgroundColor: data.daily_sales.map(() => 'rgba(251,191,36,0.35)'),
+                                    borderColor: '#fbbf24',
+                                    borderWidth: 2,
+                                    borderRadius: 7,
+                                }]
+                            },
+                            options: gridOpts()
+                        });
+                    }
+
+                    // --- Chart 2: Category Doughnut ---
+                    const c2 = document.getElementById('chart-category-sales');
+                    if (c2) {
+                        if (stockCharts.category) stockCharts.category.destroy();
+                        const cats = data.category_sales;
+                        const hasData = Object.values(cats).some(v => v > 0);
+                        stockCharts.category = new Chart(c2, {
+                            type: 'doughnut',
+                            data: {
+                                labels: Object.keys(cats),
+                                datasets: [{
+                                    data: hasData ? Object.values(cats) : [1, 1, 1],
+                                    backgroundColor: ['rgba(139,90,43,0.8)', 'rgba(196,116,106,0.8)', 'rgba(107,142,35,0.8)'],
+                                    borderColor: ['#8b5a2b', '#c4746a', '#6b8e23'],
+                                    borderWidth: 2,
+                                }]
+                            },
+                            options: {
+                                responsive: true, maintainAspectRatio: false,
+                                plugins: {
+                                    legend: { position: 'bottom', labels: { color: 'rgba(255,255,255,0.65)', padding: 16, font: { size: 12 } } },
+                                    tooltip: { callbacks: { label: ctx => hasData ? ` ${ctx.label}: ${ctx.parsed} units` : ` ${ctx.label}: No sales yet` } }
+                                },
+                                cutout: '60%',
+                            }
+                        });
+                    }
+
+                    // --- Chart 3: Remaining Stock Horizontal Bar ---
+                    const c3 = document.getElementById('chart-stock-levels');
+                    if (c3) {
+                        if (stockCharts.stock) stockCharts.stock.destroy();
+                        const pNames  = data.products.map(p => p.name.length > 18 ? p.name.slice(0,16) + '…' : p.name);
+                        const pStocks = data.products.map(p => parseInt(p.stock || 0));
+                        const barBg   = pStocks.map(s => s <= 0 ? 'rgba(239,68,68,0.55)' : s <= 5 ? 'rgba(251,191,36,0.55)' : 'rgba(52,211,153,0.55)');
+                        const barBdr  = pStocks.map(s => s <= 0 ? '#ef4444' : s <= 5 ? '#fbbf24' : '#34d399');
+                        stockCharts.stock = new Chart(c3, {
+                            type: 'bar',
+                            data: {
+                                labels: pNames,
+                                datasets: [{ label: 'Remaining Stock', data: pStocks, backgroundColor: barBg, borderColor: barBdr, borderWidth: 1.5, borderRadius: 5 }]
+                            },
+                            options: gridOpts({ indexAxis: 'y', plugins: { legend: { display: false } } })
+                        });
+                    }
+
+                    // --- Chart 4: Top Products Sold ---
+                    const c4 = document.getElementById('chart-top-products');
+                    if (c4) {
+                        if (stockCharts.top) stockCharts.top.destroy();
+                        const sorted = [...data.product_sales].sort((a, b) => b.sold - a.sold).slice(0, 8);
+                        stockCharts.top = new Chart(c4, {
+                            type: 'bar',
+                            data: {
+                                labels: sorted.map(p => p.name.length > 14 ? p.name.slice(0,12) + '…' : p.name),
+                                datasets: [{ label: 'Units Sold', data: sorted.map(p => p.sold), backgroundColor: 'rgba(96,165,250,0.45)', borderColor: '#60a5fa', borderWidth: 2, borderRadius: 6 }]
+                            },
+                            options: gridOpts({ plugins: { legend: { display: false } } })
+                        });
+                    }
+
+                    // --- Stock Status Table ---
+                    const tbody = document.getElementById('stock-report-tbody');
+                    if (tbody) {
+                        const soldMap = {};
+                        data.product_sales.forEach(ps => { soldMap[ps.name] = ps.sold; });
+                        tbody.innerHTML = data.products.length === 0
+                            ? '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:30px;">No products found.</td></tr>'
+                            : data.products.map(p => {
+                                const stock = parseInt(p.stock || 0);
+                                const sold  = soldMap[p.name] || 0;
+                                const badge = stock <= 0
+                                    ? '<span style="background:rgba(239,68,68,0.18);color:#f87171;padding:3px 12px;border-radius:20px;font-size:0.78rem;font-weight:600;">Sold Out</span>'
+                                    : stock <= 5
+                                    ? '<span style="background:rgba(251,191,36,0.18);color:#fbbf24;padding:3px 12px;border-radius:20px;font-size:0.78rem;font-weight:600;">Low Stock</span>'
+                                    : '<span style="background:rgba(52,211,153,0.18);color:#34d399;padding:3px 12px;border-radius:20px;font-size:0.78rem;font-weight:600;">In Stock</span>';
+                                const catClass = p.category ? p.category.toLowerCase() : '';
+                                return `<tr>
+                                    <td style="font-weight:500;">${p.name}</td>
+                                    <td><span class="badge ${catClass}">${p.category}</span></td>
+                                    <td style="font-weight:700;font-size:1.05rem;color:${stock<=0?'#f87171':stock<=5?'#fbbf24':'#34d399'}">${stock}</td>
+                                    <td style="color:#60a5fa;font-weight:600;">${sold}</td>
+                                    <td>${badge}</td>
+                                </tr>`;
+                            }).join('');
+                    }
+
+                } catch(e) { console.error('Stock report failed:', e); }
+            }
+
+            // Load when tab is clicked
+            document.querySelectorAll('.nav-link[data-target="view-stock-report"]').forEach(link => {
+                link.addEventListener('click', () => setTimeout(loadStockReport, 120));
+            });
+
+            // Auto-refresh every 30 s if the report tab is visible
+            setInterval(() => {
+                const rv = document.getElementById('view-stock-report');
+                if (rv && !rv.classList.contains('hidden')) loadStockReport();
+            }, 30000);
 
         });
     </script>

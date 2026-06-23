@@ -192,5 +192,69 @@ if ($action === 'submit_review') {
     exit;
 }
 
+if ($action === 'get_stock_report') {
+    try {
+        // All products with current stock
+        $stmt_p = $pdo->query("SELECT id, name, category, stock FROM products ORDER BY name ASC");
+        $products_raw = $stmt_p->fetchAll();
+
+        // Last 7 days date keys
+        $date_keys   = [];
+        $date_labels = [];
+        for ($i = 6; $i >= 0; $i--) {
+            $date_keys[]   = date('Y-m-d', strtotime("-{$i} days"));
+            $date_labels[] = date('M d',   strtotime("-{$i} days"));
+        }
+        $sales_by_day = array_fill_keys($date_keys, 0);
+
+        // Orders from last 7 days for daily + top-product chart
+        $stmt_7 = $pdo->query("SELECT cart_details, created_at FROM orders WHERE is_deleted = 0 AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)");
+        $orders_7 = $stmt_7->fetchAll();
+
+        $product_sales = []; // [id => ['name','category','sold']]
+        foreach ($orders_7 as $order) {
+            $date  = substr($order['created_at'], 0, 10);
+            $items = json_decode($order['cart_details'], true);
+            if (!is_array($items)) continue;
+            foreach ($items as $item) {
+                $qty = (int)($item['quantity'] ?? 0);
+                if (isset($sales_by_day[$date])) $sales_by_day[$date] += $qty;
+                $pid = $item['id'] ?? null;
+                if ($pid) {
+                    if (!isset($product_sales[$pid])) {
+                        $product_sales[$pid] = ['name' => $item['name'] ?? 'Unknown', 'category' => $item['category'] ?? '', 'sold' => 0];
+                    }
+                    $product_sales[$pid]['sold'] += $qty;
+                }
+            }
+        }
+
+        // Category sales – last 30 days
+        $stmt_30 = $pdo->query("SELECT cart_details FROM orders WHERE is_deleted = 0 AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)");
+        $orders_30 = $stmt_30->fetchAll();
+        $category_sales = ['Chocolates' => 0, 'Cosmetics' => 0, 'Nuts' => 0];
+        foreach ($orders_30 as $order) {
+            $items = json_decode($order['cart_details'], true);
+            if (!is_array($items)) continue;
+            foreach ($items as $item) {
+                $cat = $item['category'] ?? '';
+                if (isset($category_sales[$cat])) $category_sales[$cat] += (int)($item['quantity'] ?? 0);
+            }
+        }
+
+        echo json_encode([
+            'success'        => true,
+            'products'       => $products_raw,
+            'daily_labels'   => $date_labels,
+            'daily_sales'    => array_values($sales_by_day),
+            'product_sales'  => array_values($product_sales),
+            'category_sales' => $category_sales,
+        ]);
+    } catch (PDOException $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+    exit;
+}
+
 echo json_encode(['success' => false, 'message' => 'Invalid action']);
 ?>
