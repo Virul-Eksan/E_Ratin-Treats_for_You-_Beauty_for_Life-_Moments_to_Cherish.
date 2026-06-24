@@ -398,7 +398,7 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                     <a href="#" class="nav-link <?php echo $active_tab == 'view-customers' ? 'active' : ''; ?>" data-target="view-customers">Customers</a>
                     <a href="#" class="nav-link <?php echo $active_tab == 'view-email' ? 'active' : ''; ?>" data-target="view-email">Email Template</a>
                     <a href="#" class="nav-link" data-target="view-reviews">Customer Reviews</a>
-                    <a href="#" class="nav-link" data-target="view-stock-report">📊 Stock Report</a>
+                    <a href="#" class="nav-link" data-target="view-reports">📊 Reports</a>
                 </nav>
                 <button class="nav-arrow right" id="nav-next">&#9654;</button>
             </div>
@@ -797,87 +797,194 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
             </div>
         </div>
 
-        <!-- Stock Report View -->
-        <div id="view-stock-report" class="admin-view hidden">
+        <!-- Reports View -->
+        <div id="view-reports" class="admin-view hidden">
 
-            <!-- Header Card -->
-            <div class="card" style="margin-bottom:20px; padding:20px 25px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-                <div>
-                    <h3 style="margin:0 0 4px; font-size:1.4rem;">📊 Stock Report</h3>
-                    <p style="margin:0; color:#94a3b8; font-size:0.88rem;">Live analytics — auto-refreshes every 30 seconds when this tab is open</p>
+            <!-- Report Sub-Tab Buttons -->
+            <div style="display:flex; gap:12px; margin-bottom:24px; flex-wrap:wrap;">
+                <button id="btn-sales-report" class="report-sub-tab-btn active-sub-tab" onclick="switchReportTab('sales')"
+                    style="display:flex; align-items:center; gap:8px; padding:12px 28px; border-radius:30px; border:2px solid rgba(251,191,36,0.5); background:rgba(251,191,36,0.12); color:#fbbf24; font-size:1rem; font-weight:700; cursor:pointer; transition:all .25s;">
+                    📈 Sales Report
+                </button>
+                <button id="btn-stock-report" class="report-sub-tab-btn" onclick="switchReportTab('stock')"
+                    style="display:flex; align-items:center; gap:8px; padding:12px 28px; border-radius:30px; border:2px solid rgba(96,165,250,0.3); background:transparent; color:#94a3b8; font-size:1rem; font-weight:700; cursor:pointer; transition:all .25s;">
+                    📦 Stock Report
+                </button>
+            </div>
+
+            <!-- ===== SALES REPORT SUB-TAB ===== -->
+            <div id="sub-sales-report">
+                <!-- Header -->
+                <div class="card" style="margin-bottom:20px; padding:20px 25px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                    <div>
+                        <h3 style="margin:0 0 4px; font-size:1.4rem;">📈 Sales Report</h3>
+                        <p style="margin:0; color:#94a3b8; font-size:0.88rem;">Customizable date-range sales analytics</p>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                        <a href="sales_report.php" target="_blank"
+                           style="display:inline-flex; align-items:center; gap:7px; background:linear-gradient(135deg,#d4a017,#f59e0b); color:#0f172a; font-weight:700; font-size:0.88rem; padding:9px 20px; border-radius:25px; text-decoration:none; box-shadow:0 4px 15px rgba(212,160,23,0.35); transition:all .2s;"
+                           onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'">
+                            📄 Download Sales Report
+                        </a>
+                    </div>
                 </div>
-                <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+
+                <!-- Date Range Picker -->
+                <div class="card" style="padding:18px 24px; margin-bottom:22px; display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+                    <span style="color:#94a3b8; font-size:0.9rem; font-weight:600;">📅 Date Range:</span>
+                    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                        <input type="date" id="sales-date-from" style="padding:8px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.15); background:rgba(0,0,0,0.3); color:white; font-family:inherit; font-size:0.9rem; outline:none;">
+                        <span style="color:#94a3b8;">to</span>
+                        <input type="date" id="sales-date-to" style="padding:8px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.15); background:rgba(0,0,0,0.3); color:white; font-family:inherit; font-size:0.9rem; outline:none;">
+                        <button onclick="loadSalesReport()" style="padding:8px 20px; border-radius:8px; border:none; background:linear-gradient(135deg,#8b5cf6,#6d28d9); color:white; font-weight:700; cursor:pointer; font-size:0.9rem; transition:all .2s;" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">Apply</button>
+                        <button onclick="setSalesRange(7)" style="padding:8px 14px; border-radius:8px; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.06); color:#cbd5e1; font-size:0.82rem; cursor:pointer;">Last 7d</button>
+                        <button onclick="setSalesRange(30)" style="padding:8px 14px; border-radius:8px; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.06); color:#cbd5e1; font-size:0.82rem; cursor:pointer;">Last 30d</button>
+                        <button onclick="setSalesRange(90)" style="padding:8px 14px; border-radius:8px; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.06); color:#cbd5e1; font-size:0.82rem; cursor:pointer;">Last 90d</button>
+                    </div>
+                    <span id="sales-last-updated" style="margin-left:auto; font-size:0.8rem; color:#94a3b8;"></span>
+                </div>
+
+                <!-- Summary Stat Cards -->
+                <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:14px; margin-bottom:22px;">
+                    <div class="card" style="padding:20px; text-align:center; background:linear-gradient(135deg,rgba(251,191,36,0.12),rgba(245,158,11,0.04)); border:1px solid rgba(251,191,36,0.3);">
+                        <div id="sr-stat-units" style="font-size:2rem; font-weight:700; color:#fbbf24;">—</div>
+                        <div style="color:#94a3b8; font-size:0.8rem; margin-top:4px;">Total Units Sold</div>
+                    </div>
+                    <div class="card" style="padding:20px; text-align:center; background:linear-gradient(135deg,rgba(52,211,153,0.12),rgba(16,185,129,0.04)); border:1px solid rgba(52,211,153,0.3);">
+                        <div id="sr-stat-revenue" style="font-size:2rem; font-weight:700; color:#34d399;">—</div>
+                        <div style="color:#94a3b8; font-size:0.8rem; margin-top:4px;">Total Revenue</div>
+                    </div>
+                    <div class="card" style="padding:20px; text-align:center; background:linear-gradient(135deg,rgba(139,92,246,0.12),rgba(109,40,217,0.04)); border:1px solid rgba(139,92,246,0.3);">
+                        <div id="sr-stat-days" style="font-size:2rem; font-weight:700; color:#a78bfa;">—</div>
+                        <div style="color:#94a3b8; font-size:0.8rem; margin-top:4px;">Days in Range</div>
+                    </div>
+                    <div class="card" style="padding:20px; text-align:center; background:linear-gradient(135deg,rgba(96,165,250,0.12),rgba(59,130,246,0.04)); border:1px solid rgba(96,165,250,0.3);">
+                        <div id="sr-stat-avg" style="font-size:2rem; font-weight:700; color:#60a5fa;">—</div>
+                        <div style="color:#94a3b8; font-size:0.8rem; margin-top:4px;">Avg Units/Day</div>
+                    </div>
+                </div>
+
+                <!-- Daily Sales Bar + Pie -->
+                <div class="card" style="padding:18px 20px; margin-bottom:10px;">
+                    <h4 style="margin:0 0 4px; color:var(--primary-pink); font-size:1rem;">📈 Daily Sales</h4>
+                    <p style="margin:0 0 16px; color:#64748b; font-size:0.8rem;">Units sold per day in selected range</p>
+                </div>
+                <div style="display:grid; grid-template-columns:2fr 1fr; gap:20px; margin-bottom:22px;">
+                    <div class="card" style="padding:24px;">
+                        <div style="position:relative; height:280px;"><canvas id="sr-chart-daily"></canvas></div>
+                    </div>
+                    <div class="card" style="padding:24px;">
+                        <h4 style="margin:0 0 12px; color:#94a3b8; font-size:0.85rem; text-align:center;">Category Share — Daily</h4>
+                        <div style="position:relative; height:240px;"><canvas id="sr-chart-daily-pie"></canvas></div>
+                    </div>
+                </div>
+
+                <!-- Monthly Sales Bar + Pie -->
+                <div class="card" style="padding:18px 20px; margin-bottom:10px;">
+                    <h4 style="margin:0 0 4px; color:var(--primary-pink); font-size:1rem;">📅 Monthly Sales</h4>
+                    <p style="margin:0 0 16px; color:#64748b; font-size:0.8rem;">Units sold per month in selected range</p>
+                </div>
+                <div style="display:grid; grid-template-columns:2fr 1fr; gap:20px; margin-bottom:22px;">
+                    <div class="card" style="padding:24px;">
+                        <div style="position:relative; height:280px;"><canvas id="sr-chart-monthly"></canvas></div>
+                    </div>
+                    <div class="card" style="padding:24px;">
+                        <h4 style="margin:0 0 12px; color:#94a3b8; font-size:0.85rem; text-align:center;">Category Share — Monthly</h4>
+                        <div style="position:relative; height:240px;"><canvas id="sr-chart-monthly-pie"></canvas></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== STOCK REPORT SUB-TAB ===== -->
+            <div id="sub-stock-report" class="hidden">
+                <!-- Header -->
+                <div class="card" style="margin-bottom:20px; padding:20px 25px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                    <div>
+                        <h3 style="margin:0 0 4px; font-size:1.4rem;">📦 Stock Report</h3>
+                        <p style="margin:0; color:#94a3b8; font-size:0.88rem;">Live analytics — auto-refreshes every 30 seconds</p>
+                    </div>
                     <span id="report-last-updated" style="font-size:0.8rem; color:#94a3b8; background:rgba(255,255,255,0.05); padding:5px 12px; border-radius:20px; border:1px solid rgba(255,255,255,0.08);">Not loaded yet</span>
-                    <a href="sales_report.php" target="_blank"
-                       style="display:inline-flex; align-items:center; gap:7px; background:linear-gradient(135deg,#d4a017,#f59e0b); color:#0f172a; font-weight:700; font-size:0.88rem; padding:9px 20px; border-radius:25px; text-decoration:none; box-shadow:0 4px 15px rgba(212,160,23,0.35); transition:all .2s;"
-                       onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'">
-                        📄 Download Sales Report
-                    </a>
                 </div>
-            </div>
 
-            <!-- Summary Stat Cards -->
-            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:16px; margin-bottom:22px;">
-                <div class="card" style="padding:22px; text-align:center; background:linear-gradient(135deg,rgba(52,211,153,0.1),rgba(16,185,129,0.04)); border:1px solid rgba(52,211,153,0.25);">
-                    <div id="stat-total-products" style="font-size:2.2rem; font-weight:700; color:#34d399;">—</div>
-                    <div style="color:#94a3b8; font-size:0.82rem; margin-top:5px;">Total Products</div>
+                <!-- Summary Stat Cards -->
+                <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:16px; margin-bottom:22px;">
+                    <div class="card" style="padding:22px; text-align:center; background:linear-gradient(135deg,rgba(52,211,153,0.1),rgba(16,185,129,0.04)); border:1px solid rgba(52,211,153,0.25);">
+                        <div id="stat-total-products" style="font-size:2.2rem; font-weight:700; color:#34d399;">—</div>
+                        <div style="color:#94a3b8; font-size:0.82rem; margin-top:5px;">Total Products</div>
+                    </div>
+                    <div class="card" style="padding:22px; text-align:center; background:linear-gradient(135deg,rgba(96,165,250,0.1),rgba(59,130,246,0.04)); border:1px solid rgba(96,165,250,0.25);">
+                        <div id="stat-total-stock" style="font-size:2.2rem; font-weight:700; color:#60a5fa;">—</div>
+                        <div style="color:#94a3b8; font-size:0.82rem; margin-top:5px;">Units in Stock</div>
+                    </div>
+                    <div class="card" style="padding:22px; text-align:center; background:linear-gradient(135deg,rgba(251,191,36,0.1),rgba(245,158,11,0.04)); border:1px solid rgba(251,191,36,0.25);">
+                        <div id="stat-sold-7d" style="font-size:2.2rem; font-weight:700; color:#fbbf24;">—</div>
+                        <div style="color:#94a3b8; font-size:0.82rem; margin-top:5px;">Units Sold (7 Days)</div>
+                    </div>
+                    <div class="card" style="padding:22px; text-align:center; background:linear-gradient(135deg,rgba(239,68,68,0.1),rgba(220,38,38,0.04)); border:1px solid rgba(239,68,68,0.25);">
+                        <div id="stat-sold-out" style="font-size:2.2rem; font-weight:700; color:#f87171;">—</div>
+                        <div style="color:#94a3b8; font-size:0.82rem; margin-top:5px;">Sold Out Products</div>
+                    </div>
                 </div>
-                <div class="card" style="padding:22px; text-align:center; background:linear-gradient(135deg,rgba(96,165,250,0.1),rgba(59,130,246,0.04)); border:1px solid rgba(96,165,250,0.25);">
-                    <div id="stat-total-stock" style="font-size:2.2rem; font-weight:700; color:#60a5fa;">—</div>
-                    <div style="color:#94a3b8; font-size:0.82rem; margin-top:5px;">Units in Stock</div>
-                </div>
-                <div class="card" style="padding:22px; text-align:center; background:linear-gradient(135deg,rgba(251,191,36,0.1),rgba(245,158,11,0.04)); border:1px solid rgba(251,191,36,0.25);">
-                    <div id="stat-sold-7d" style="font-size:2.2rem; font-weight:700; color:#fbbf24;">—</div>
-                    <div style="color:#94a3b8; font-size:0.82rem; margin-top:5px;">Units Sold (7 Days)</div>
-                </div>
-                <div class="card" style="padding:22px; text-align:center; background:linear-gradient(135deg,rgba(239,68,68,0.1),rgba(220,38,38,0.04)); border:1px solid rgba(239,68,68,0.25);">
-                    <div id="stat-sold-out" style="font-size:2.2rem; font-weight:700; color:#f87171;">—</div>
-                    <div style="color:#94a3b8; font-size:0.82rem; margin-top:5px;">Sold Out Products</div>
-                </div>
-            </div>
 
-            <!-- Charts Row 1: Daily Sales + Category Doughnut -->
-            <div style="display:grid; grid-template-columns:2fr 1fr; gap:20px; margin-bottom:20px;">
-                <div class="card" style="padding:24px;">
-                    <h4 style="margin:0 0 18px; color:var(--primary-pink);">📈 Daily Units Sold — Last 7 Days</h4>
-                    <div style="position:relative; height:270px;"><canvas id="chart-daily-sales"></canvas></div>
+                <!-- Charts Row 1: Daily Sales Bar + 7-day Pie -->
+                <div class="card" style="padding:18px 20px; margin-bottom:10px;">
+                    <h4 style="margin:0 0 4px; color:var(--primary-pink); font-size:1rem;">📈 Daily Sales — Last 7 Days</h4>
                 </div>
-                <div class="card" style="padding:24px;">
-                    <h4 style="margin:0 0 18px; color:var(--primary-pink);">🥧 Sales by Category — 30 Days</h4>
-                    <div style="position:relative; height:270px;"><canvas id="chart-category-sales"></canvas></div>
+                <div style="display:grid; grid-template-columns:2fr 1fr; gap:20px; margin-bottom:20px;">
+                    <div class="card" style="padding:24px;">
+                        <div style="position:relative; height:270px;"><canvas id="chart-daily-sales"></canvas></div>
+                    </div>
+                    <div class="card" style="padding:24px;">
+                        <h4 style="margin:0 0 12px; color:#94a3b8; font-size:0.85rem; text-align:center;">Category Share — 7 Days %</h4>
+                        <div style="position:relative; height:240px;"><canvas id="chart-category-sales"></canvas></div>
+                    </div>
                 </div>
-            </div>
 
-            <!-- Charts Row 2: Remaining Stock + Top Products -->
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px;">
-                <div class="card" style="padding:24px;">
-                    <h4 style="margin:0 0 18px; color:var(--primary-pink);">📦 Remaining Stock per Product</h4>
-                    <div style="position:relative; height:300px;"><canvas id="chart-stock-levels"></canvas></div>
+                <!-- Charts Row 2: Monthly Sales Bar + Monthly Pie -->
+                <div class="card" style="padding:18px 20px; margin-bottom:10px;">
+                    <h4 style="margin:0 0 4px; color:var(--primary-pink); font-size:1rem;">📅 Monthly Sales</h4>
                 </div>
-                <div class="card" style="padding:24px;">
-                    <h4 style="margin:0 0 18px; color:var(--primary-pink);">🏆 Top Products Sold — 7 Days</h4>
-                    <div style="position:relative; height:300px;"><canvas id="chart-top-products"></canvas></div>
+                <div style="display:grid; grid-template-columns:2fr 1fr; gap:20px; margin-bottom:20px;">
+                    <div class="card" style="padding:24px;">
+                        <div style="position:relative; height:270px;"><canvas id="chart-monthly-sales"></canvas></div>
+                    </div>
+                    <div class="card" style="padding:24px;">
+                        <h4 style="margin:0 0 12px; color:#94a3b8; font-size:0.85rem; text-align:center;">Category Share — Monthly %</h4>
+                        <div style="position:relative; height:240px;"><canvas id="chart-monthly-category"></canvas></div>
+                    </div>
                 </div>
-            </div>
 
-            <!-- Full Stock Status Table -->
-            <div class="card" style="padding:24px;">
-                <h4 style="margin:0 0 18px; color:var(--primary-pink);">🗂️ Full Stock Status</h4>
-                <div class="table-responsive">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Product</th>
-                                <th>Category</th>
-                                <th>Stock Remaining</th>
-                                <th>Sold (7 Days)</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody id="stock-report-tbody">
-                            <tr><td colspan="5" style="text-align:center; color:#94a3b8; padding:30px;">Click "Stock Report" to load data…</td></tr>
-                        </tbody>
-                    </table>
+                <!-- Charts Row 3: Remaining Stock + Top Products -->
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px;">
+                    <div class="card" style="padding:24px;">
+                        <h4 style="margin:0 0 18px; color:var(--primary-pink);">📦 Remaining Stock per Product</h4>
+                        <div style="position:relative; height:300px;"><canvas id="chart-stock-levels"></canvas></div>
+                    </div>
+                    <div class="card" style="padding:24px;">
+                        <h4 style="margin:0 0 18px; color:var(--primary-pink);">🏆 Top Products Sold — 7 Days</h4>
+                        <div style="position:relative; height:300px;"><canvas id="chart-top-products"></canvas></div>
+                    </div>
+                </div>
+
+                <!-- Full Stock Status Table -->
+                <div class="card" style="padding:24px;">
+                    <h4 style="margin:0 0 18px; color:var(--primary-pink);">🗂️ Full Stock Status</h4>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Category</th>
+                                    <th>Stock Remaining</th>
+                                    <th>Sold (7 Days)</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="stock-report-tbody">
+                                <tr><td colspan="5" style="text-align:center; color:#94a3b8; padding:30px;">Click "Reports" to load data…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1714,12 +1821,13 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                         });
                     }
 
-                    // --- Chart 2: Category Doughnut ---
+                    // --- Chart 2: Category Doughnut (7-day) ---
                     const c2 = document.getElementById('chart-category-sales');
                     if (c2) {
                         if (stockCharts.category) stockCharts.category.destroy();
                         const cats = data.category_sales;
                         const hasData = Object.values(cats).some(v => v > 0);
+                        const total7 = Object.values(cats).reduce((a,b)=>a+b,0);
                         stockCharts.category = new Chart(c2, {
                             type: 'doughnut',
                             data: {
@@ -1735,12 +1843,48 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                                 responsive: true, maintainAspectRatio: false,
                                 plugins: {
                                     legend: { position: 'bottom', labels: { color: 'rgba(255,255,255,0.65)', padding: 16, font: { size: 12 } } },
-                                    tooltip: { callbacks: { label: ctx => hasData ? ` ${ctx.label}: ${ctx.parsed} units` : ` ${ctx.label}: No sales yet` } }
+                                    tooltip: { callbacks: { label: ctx => {
+                                        const pct = total7 > 0 ? ((ctx.parsed/total7)*100).toFixed(1) : 0;
+                                        return hasData ? ` ${ctx.label}: ${ctx.parsed} units (${pct}%)` : ` ${ctx.label}: No sales yet`;
+                                    }}}
                                 },
                                 cutout: '60%',
                             }
                         });
                     }
+
+                    // --- Monthly Sales Bar + Category Pie (Stock Report) ---
+                    // Fetch monthly data using the sales_report endpoint for last 90 days
+                    try {
+                        const mRes = await fetch(`api.php?action=get_sales_report&date_from=${encodeURIComponent(new Date(Date.now()-89*86400000).toISOString().slice(0,10))}&date_to=${encodeURIComponent(new Date().toISOString().slice(0,10))}&_t=${Date.now()}`, {cache:'no-store'});
+                        const mData = await mRes.json();
+                        if (mData.success) {
+                            const cm = document.getElementById('chart-monthly-sales');
+                            if (cm) {
+                                if (stockCharts.monthly) stockCharts.monthly.destroy();
+                                stockCharts.monthly = new Chart(cm, {
+                                    type: 'bar',
+                                    data: { labels: mData.monthly_labels, datasets: [{
+                                        label: 'Units Sold', data: mData.monthly_values,
+                                        backgroundColor: 'rgba(139,92,246,0.45)', borderColor: '#8b5cf6', borderWidth: 2, borderRadius: 6
+                                    }]},
+                                    options: gridOpts()
+                                });
+                            }
+                            const cmp = document.getElementById('chart-monthly-category');
+                            if (cmp) {
+                                if (stockCharts.monthlyCat) stockCharts.monthlyCat.destroy();
+                                const mCats = mData.category_sales;
+                                const mHas  = Object.values(mCats).some(v => v > 0);
+                                const mTot  = Object.values(mCats).reduce((a,b)=>a+b,0);
+                                stockCharts.monthlyCat = new Chart(cmp, {
+                                    type: 'doughnut',
+                                    data: { labels: Object.keys(mCats), datasets: [{ data: mHas ? Object.values(mCats) : [1,1,1], backgroundColor: ['rgba(139,90,43,0.8)','rgba(196,116,106,0.8)','rgba(107,142,35,0.8)'], borderColor: ['#8b5a2b','#c4746a','#6b8e23'], borderWidth: 2 }]},
+                                    options: { responsive:true, maintainAspectRatio:false, plugins: { legend:{ position:'bottom', labels:{ color:'rgba(255,255,255,0.65)', padding:14, font:{size:11} }}, tooltip:{ callbacks:{ label: ctx => { const pct = mTot>0?((ctx.parsed/mTot)*100).toFixed(1):0; return mHas?` ${ctx.label}: ${ctx.parsed} units (${pct}%)`:`No sales yet`; }}}}, cutout:'60%' }
+                                });
+                            }
+                        }
+                    } catch(me) { console.error('Monthly stock chart failed:', me); }
 
                     // --- Chart 3: Remaining Stock Horizontal Bar ---
                     const c3 = document.getElementById('chart-stock-levels');
@@ -1804,15 +1948,185 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                 } catch(e) { console.error('Stock report failed:', e); }
             }
 
-            // Load when tab is clicked
-            document.querySelectorAll('.nav-link[data-target="view-stock-report"]').forEach(link => {
-                link.addEventListener('click', () => setTimeout(loadStockReport, 120));
+            // =============================================
+            // --- Reports Tab: Sub-tab Switching ---
+            // =============================================
+            window.switchReportTab = function(tab) {
+                const salesDiv = document.getElementById('sub-sales-report');
+                const stockDiv = document.getElementById('sub-stock-report');
+                const btnSales = document.getElementById('btn-sales-report');
+                const btnStock = document.getElementById('btn-stock-report');
+                if (tab === 'sales') {
+                    salesDiv.classList.remove('hidden');
+                    stockDiv.classList.add('hidden');
+                    btnSales.style.cssText = 'display:flex;align-items:center;gap:8px;padding:12px 28px;border-radius:30px;border:2px solid rgba(251,191,36,0.5);background:rgba(251,191,36,0.12);color:#fbbf24;font-size:1rem;font-weight:700;cursor:pointer;transition:all .25s;';
+                    btnStock.style.cssText = 'display:flex;align-items:center;gap:8px;padding:12px 28px;border-radius:30px;border:2px solid rgba(96,165,250,0.3);background:transparent;color:#94a3b8;font-size:1rem;font-weight:700;cursor:pointer;transition:all .25s;';
+                    if (!window._salesLoaded) loadSalesReport();
+                } else {
+                    salesDiv.classList.add('hidden');
+                    stockDiv.classList.remove('hidden');
+                    btnStock.style.cssText = 'display:flex;align-items:center;gap:8px;padding:12px 28px;border-radius:30px;border:2px solid rgba(96,165,250,0.5);background:rgba(96,165,250,0.12);color:#60a5fa;font-size:1rem;font-weight:700;cursor:pointer;transition:all .25s;';
+                    btnSales.style.cssText = 'display:flex;align-items:center;gap:8px;padding:12px 28px;border-radius:30px;border:2px solid rgba(251,191,36,0.2);background:transparent;color:#94a3b8;font-size:1rem;font-weight:700;cursor:pointer;transition:all .25s;';
+                    setTimeout(loadStockReport, 120);
+                }
+            };
+
+            // =============================================
+            // --- Sales Report Charts ---
+            // =============================================
+            const salesCharts = {};
+
+            window.setSalesRange = function(days) {
+                const to   = new Date();
+                const from = new Date();
+                from.setDate(from.getDate() - (days - 1));
+                document.getElementById('sales-date-from').value = from.toISOString().slice(0,10);
+                document.getElementById('sales-date-to').value   = to.toISOString().slice(0,10);
+                loadSalesReport();
+            };
+
+            // Init default date range (last 7 days)
+            (function initDates() {
+                const to   = new Date();
+                const from = new Date();
+                from.setDate(from.getDate() - 6);
+                document.getElementById('sales-date-from').value = from.toISOString().slice(0,10);
+                document.getElementById('sales-date-to').value   = to.toISOString().slice(0,10);
+            })();
+
+            window.loadSalesReport = async function() {
+                const from = document.getElementById('sales-date-from').value;
+                const to   = document.getElementById('sales-date-to').value;
+                if (!from || !to) return;
+                try {
+                    const res  = await fetch(`api.php?action=get_sales_report&date_from=${from}&date_to=${to}&_t=${Date.now()}`, { cache:'no-store' });
+                    const data = await res.json();
+                    if (!data.success) return;
+                    window._salesLoaded = true;
+
+                    // Stat cards
+                    const days = Math.round((new Date(to) - new Date(from)) / 86400000) + 1;
+                    const avg  = days > 0 ? (data.total_units / days).toFixed(1) : 0;
+                    document.getElementById('sr-stat-units').textContent   = data.total_units;
+                    document.getElementById('sr-stat-revenue').textContent = '$' + data.total_revenue.toFixed(2);
+                    document.getElementById('sr-stat-days').textContent    = days;
+                    document.getElementById('sr-stat-avg').textContent     = avg;
+                    document.getElementById('sales-last-updated').textContent = 'Updated: ' + new Date().toLocaleTimeString();
+
+                    const pieColors = ['rgba(139,90,43,0.85)','rgba(196,116,106,0.85)','rgba(107,142,35,0.85)'];
+                    const pieBorder = ['#8b5a2b','#c4746a','#6b8e23'];
+
+                    const pieOpts = (hasData, catLabels, catData, revData) => ({
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position:'bottom', labels:{ color:'rgba(255,255,255,0.7)', padding:14, font:{size:11} } },
+                            tooltip: { callbacks: { label: ctx => {
+                                const total = catData.reduce((a,b)=>a+b,0);
+                                const pct   = total > 0 ? ((ctx.parsed/total)*100).toFixed(1) : 0;
+                                return hasData ? ` ${ctx.label}: ${ctx.parsed} units (${pct}%)` : ` ${ctx.label}: No sales yet`;
+                            }}}
+                        },
+                        cutout: '58%'
+                    });
+
+                    const gridOpts = () => ({
+                        responsive:true, maintainAspectRatio:false,
+                        plugins:{ legend:{ labels:{ color:'rgba(255,255,255,0.65)', font:{size:12} } } },
+                        scales:{
+                            x:{ ticks:{ color:'#94a3b8', font:{size:11} }, grid:{ color:'rgba(255,255,255,0.05)' } },
+                            y:{ ticks:{ color:'#94a3b8', font:{size:11} }, grid:{ color:'rgba(255,255,255,0.06)' }, beginAtZero:true }
+                        }
+                    });
+
+                    // Daily Bar
+                    const c1 = document.getElementById('sr-chart-daily');
+                    if (c1) {
+                        if (salesCharts.daily) salesCharts.daily.destroy();
+                        salesCharts.daily = new Chart(c1, {
+                            type:'bar',
+                            data:{ labels: data.daily_labels, datasets:[{
+                                label:'Units Sold', data: data.daily_values,
+                                backgroundColor:'rgba(251,191,36,0.35)', borderColor:'#fbbf24', borderWidth:2, borderRadius:6
+                            },{
+                                label:'Revenue ($)', data: data.daily_revenues,
+                                backgroundColor:'rgba(52,211,153,0.25)', borderColor:'#34d399', borderWidth:2, borderRadius:6, yAxisID:'y'
+                            }]},
+                            options: gridOpts()
+                        });
+                    }
+
+                    // Daily Pie
+                    const c2 = document.getElementById('sr-chart-daily-pie');
+                    if (c2) {
+                        if (salesCharts.dailyPie) salesCharts.dailyPie.destroy();
+                        const cats    = data.category_sales;
+                        const catKeys = Object.keys(cats);
+                        const catVals = Object.values(cats);
+                        const hasData = catVals.some(v => v > 0);
+                        salesCharts.dailyPie = new Chart(c2, {
+                            type:'doughnut',
+                            data:{ labels: catKeys, datasets:[{ data: hasData ? catVals : [1,1,1], backgroundColor: pieColors, borderColor: pieBorder, borderWidth:2 }]},
+                            options: pieOpts(hasData, catKeys, hasData ? catVals : [1,1,1], Object.values(data.category_rev))
+                        });
+                    }
+
+                    // Monthly Bar
+                    const c3 = document.getElementById('sr-chart-monthly');
+                    if (c3) {
+                        if (salesCharts.monthly) salesCharts.monthly.destroy();
+                        salesCharts.monthly = new Chart(c3, {
+                            type:'bar',
+                            data:{ labels: data.monthly_labels, datasets:[{
+                                label:'Units Sold', data: data.monthly_values,
+                                backgroundColor:'rgba(139,92,246,0.4)', borderColor:'#8b5cf6', borderWidth:2, borderRadius:6
+                            },{
+                                label:'Revenue ($)', data: data.monthly_revenues,
+                                backgroundColor:'rgba(96,165,250,0.3)', borderColor:'#60a5fa', borderWidth:2, borderRadius:6
+                            }]},
+                            options: gridOpts()
+                        });
+                    }
+
+                    // Monthly Pie
+                    const c4 = document.getElementById('sr-chart-monthly-pie');
+                    if (c4) {
+                        if (salesCharts.monthlyPie) salesCharts.monthlyPie.destroy();
+                        const cats    = data.category_sales;
+                        const catKeys = Object.keys(cats);
+                        const catVals = Object.values(cats);
+                        const hasData = catVals.some(v => v > 0);
+                        salesCharts.monthlyPie = new Chart(c4, {
+                            type:'doughnut',
+                            data:{ labels: catKeys, datasets:[{ data: hasData ? catVals : [1,1,1], backgroundColor: pieColors, borderColor: pieBorder, borderWidth:2 }]},
+                            options: pieOpts(hasData, catKeys, hasData ? catVals : [1,1,1], Object.values(data.category_rev))
+                        });
+                    }
+
+                } catch(e) { console.error('Sales report failed:', e); }
+            };
+
+            // Load when Reports nav tab is clicked
+            document.querySelectorAll('.nav-link[data-target="view-reports"]').forEach(link => {
+                link.addEventListener('click', () => setTimeout(() => {
+                    // Default: load sales report on first open
+                    if (!window._salesLoaded) loadSalesReport();
+                }, 120));
             });
 
-            // Auto-refresh every 30 s if the report tab is visible
+            // Auto-refresh Sales Report every 60s if visible
             setInterval(() => {
-                const rv = document.getElementById('view-stock-report');
-                if (rv && !rv.classList.contains('hidden')) loadStockReport();
+                const rv = document.getElementById('sub-sales-report');
+                if (rv && !rv.classList.contains('hidden') && document.getElementById('view-reports') && !document.getElementById('view-reports').classList.contains('hidden')) {
+                    loadSalesReport();
+                }
+            }, 60000);
+
+            // Auto-refresh Stock Report every 30s if visible
+            setInterval(() => {
+                const rv = document.getElementById('sub-stock-report');
+                if (rv && !rv.classList.contains('hidden') && document.getElementById('view-reports') && !document.getElementById('view-reports').classList.contains('hidden')) {
+                    loadStockReport();
+                }
             }, 30000);
 
         });

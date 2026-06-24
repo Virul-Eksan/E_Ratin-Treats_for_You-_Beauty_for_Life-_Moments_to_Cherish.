@@ -1,26 +1,64 @@
 <?php
 require_once 'db.php';
 
-// --- Fetch Products ---
-$products = $pdo->query("SELECT id, name, category, stock, price FROM products ORDER BY category, name")->fetchAll();
+$date_from = $_GET['date_from'] ?? null;
+$date_to   = $_GET['date_to']   ?? null;
 
-// --- Today's Sales ---
-$today_orders = $pdo->query("SELECT cart_details FROM orders WHERE is_deleted=0 AND DATE(created_at)=CURDATE()")->fetchAll();
-$today_map = [];
-foreach ($today_orders as $o) {
-    foreach (json_decode($o['cart_details'], true) ?: [] as $item) {
-        $pid = $item['id'] ?? null;
-        if ($pid) $today_map[$pid] = ($today_map[$pid] ?? 0) + (int)($item['quantity'] ?? 0);
+$is_custom = false;
+if ($date_from && $date_to) {
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date_from) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date_to)) {
+        $is_custom = true;
     }
 }
 
-// --- Monthly Sales ---
-$month_orders = $pdo->query("SELECT cart_details FROM orders WHERE is_deleted=0 AND YEAR(created_at)=YEAR(NOW()) AND MONTH(created_at)=MONTH(NOW())")->fetchAll();
-$month_map = [];
-foreach ($month_orders as $o) {
-    foreach (json_decode($o['cart_details'], true) ?: [] as $item) {
-        $pid = $item['id'] ?? null;
-        if ($pid) $month_map[$pid] = ($month_map[$pid] ?? 0) + (int)($item['quantity'] ?? 0);
+// --- Fetch Products ---
+$products = $pdo->query("SELECT id, name, category, stock, price FROM products ORDER BY category, name")->fetchAll();
+
+if ($is_custom) {
+    // --- Period Sales ---
+    $period_stmt = $pdo->prepare("SELECT cart_details FROM orders WHERE is_deleted=0 AND DATE(created_at) BETWEEN ? AND ?");
+    $period_stmt->execute([$date_from, $date_to]);
+    $period_orders = $period_stmt->fetchAll();
+    $today_map = [];
+    foreach ($period_orders as $o) {
+        foreach (json_decode($o['cart_details'], true) ?: [] as $item) {
+            $pid = $item['id'] ?? null;
+            if ($pid) $today_map[$pid] = ($today_map[$pid] ?? 0) + (int)($item['quantity'] ?? 0);
+        }
+    }
+
+    // --- Monthly Sales for months included in period ---
+    $start_m = date('Y-m-01', strtotime($date_from));
+    $end_m   = date('Y-m-t', strtotime($date_to));
+    $month_stmt = $pdo->prepare("SELECT cart_details FROM orders WHERE is_deleted=0 AND DATE(created_at) BETWEEN ? AND ?");
+    $month_stmt->execute([$start_m, $end_m]);
+    $month_orders = $month_stmt->fetchAll();
+    $month_map = [];
+    foreach ($month_orders as $o) {
+        foreach (json_decode($o['cart_details'], true) ?: [] as $item) {
+            $pid = $item['id'] ?? null;
+            if ($pid) $month_map[$pid] = ($month_map[$pid] ?? 0) + (int)($item['quantity'] ?? 0);
+        }
+    }
+} else {
+    // --- Today's Sales ---
+    $today_orders = $pdo->query("SELECT cart_details FROM orders WHERE is_deleted=0 AND DATE(created_at)=CURDATE()")->fetchAll();
+    $today_map = [];
+    foreach ($today_orders as $o) {
+        foreach (json_decode($o['cart_details'], true) ?: [] as $item) {
+            $pid = $item['id'] ?? null;
+            if ($pid) $today_map[$pid] = ($today_map[$pid] ?? 0) + (int)($item['quantity'] ?? 0);
+        }
+    }
+
+    // --- Monthly Sales ---
+    $month_orders = $pdo->query("SELECT cart_details FROM orders WHERE is_deleted=0 AND YEAR(created_at)=YEAR(NOW()) AND MONTH(created_at)=MONTH(NOW())")->fetchAll();
+    $month_map = [];
+    foreach ($month_orders as $o) {
+        foreach (json_decode($o['cart_details'], true) ?: [] as $item) {
+            $pid = $item['id'] ?? null;
+            if ($pid) $month_map[$pid] = ($month_map[$pid] ?? 0) + (int)($item['quantity'] ?? 0);
+        }
     }
 }
 
@@ -46,8 +84,16 @@ foreach ($products as $p) {
 }
 
 $cat_colors = ['Chocolates'=>['#8b5a2b','#d4956a'], 'Cosmetics'=>['#9b3f6f','#e07fa8'], 'Nuts'=>['#4a7c2f','#8bc34a']];
-$report_date  = date('F j, Y');
-$report_month = date('F Y');
+
+if ($is_custom) {
+    $report_date  = date('F j, Y', strtotime($date_from)) . ' to ' . date('F j, Y', strtotime($date_to));
+    $start_m_str  = date('F Y', strtotime($date_from));
+    $end_m_str    = date('F Y', strtotime($date_to));
+    $report_month = ($start_m_str === $end_m_str) ? $start_m_str : "$start_m_str to $end_m_str";
+} else {
+    $report_date  = date('F j, Y');
+    $report_month = date('F Y');
+}
 
 // --- SVG Bar Chart Data ---
 $chart_items = []; $max_sold = 1;
@@ -198,25 +244,25 @@ $svg_w = max(600, count($chart_items) * ($bar_w + $bar_gap) + $chart_pad * 2);
   <div class="stat-row">
     <div class="stat-card">
       <div class="stat-num" style="color:var(--yellow)"><?php echo $grand_today_sold; ?></div>
-      <div class="stat-label">Units Sold Today</div>
+      <div class="stat-label"><?php echo $is_custom ? 'Units Sold (Period)' : 'Units Sold Today'; ?></div>
     </div>
     <div class="stat-card">
       <div class="stat-num" style="color:var(--green)">$<?php echo number_format($grand_today_rev,2); ?></div>
-      <div class="stat-label">Today's Revenue</div>
+      <div class="stat-label"><?php echo $is_custom ? 'Period Revenue' : "Today's Revenue"; ?></div>
     </div>
     <div class="stat-card">
       <div class="stat-num" style="color:var(--blue)"><?php echo $grand_month_sold; ?></div>
-      <div class="stat-label">Units Sold This Month</div>
+      <div class="stat-label"><?php echo $is_custom ? 'Units Sold in Months' : 'Units Sold This Month'; ?></div>
     </div>
     <div class="stat-card">
       <div class="stat-num" style="color:#c084fc">$<?php echo number_format($grand_month_rev,2); ?></div>
-      <div class="stat-label">Monthly Revenue</div>
+      <div class="stat-label"><?php echo $is_custom ? 'Months Revenue' : 'Monthly Revenue'; ?></div>
     </div>
   </div>
 
   <!-- ============ SECTION 1: DAILY SALES ============ -->
   <div class="section-title">
-    <h2>📅 Section 1 — Daily Sales Report</h2>
+    <h2>📅 Section 1 — <?php echo $is_custom ? 'Period' : 'Daily'; ?> Sales Report</h2>
     <span><?php echo $report_date; ?></span>
   </div>
 
@@ -231,7 +277,7 @@ $svg_w = max(600, count($chart_items) * ($bar_w + $bar_gap) + $chart_pad * 2);
       <thead>
         <tr>
           <th>Product</th><th>Unit Price</th><th>Morning Stock</th>
-          <th>Sold Today</th><th>Today Revenue</th><th>Remaining Stock</th>
+          <th><?php echo $is_custom ? 'Sold in Period' : 'Sold Today'; ?></th><th><?php echo $is_custom ? 'Period Revenue' : 'Today Revenue'; ?></th><th>Remaining Stock</th>
         </tr>
       </thead>
       <tbody>
@@ -262,7 +308,7 @@ $svg_w = max(600, count($chart_items) * ($bar_w + $bar_gap) + $chart_pad * 2);
   <table style="margin-bottom:28px; border-radius:8px; overflow:hidden;">
     <tbody>
       <tr class="grand-row">
-        <td>🏆 DAILY GRAND TOTAL</td><td></td><td></td>
+        <td>🏆 <?php echo $is_custom ? 'PERIOD' : 'DAILY'; ?> GRAND TOTAL</td><td></td><td></td>
         <td><?php echo $grand_today_sold; ?> units</td>
         <td>$<?php echo number_format($grand_today_rev,2); ?></td>
         <td></td>
@@ -272,12 +318,12 @@ $svg_w = max(600, count($chart_items) * ($bar_w + $bar_gap) + $chart_pad * 2);
 
   <!-- ============ SECTION 2: DAILY CHART ============ -->
   <div class="section-title">
-    <h2>📈 Section 2 — Daily Sales Chart</h2>
-    <span>Units sold today per product</span>
+    <h2>📈 Section 2 — <?php echo $is_custom ? 'Period' : 'Daily'; ?> Sales Chart</h2>
+    <span><?php echo $is_custom ? 'Units sold during selected period per product' : 'Units sold today per product'; ?></span>
   </div>
 
   <div class="chart-wrap">
-    <h3>Today's Sales by Product</h3>
+    <h3><?php echo $is_custom ? 'Period Sales by Product' : "Today's Sales by Product"; ?></h3>
     <?php
       $ci = array_filter($chart_items, fn($i) => true);
       $ci = array_values($ci);

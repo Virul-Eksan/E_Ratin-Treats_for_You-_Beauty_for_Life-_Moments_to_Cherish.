@@ -256,5 +256,124 @@ if ($action === 'get_stock_report') {
     exit;
 }
 
+if ($action === 'get_sales_report') {
+    try {
+        $date_from = $_GET['date_from'] ?? date('Y-m-d', strtotime('-6 days'));
+        $date_to   = $_GET['date_to']   ?? date('Y-m-d');
+
+        // Validate dates
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date_from)) $date_from = date('Y-m-d', strtotime('-6 days'));
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date_to))   $date_to   = date('Y-m-d');
+        if ($date_from > $date_to) { $tmp = $date_from; $date_from = $date_to; $date_to = $tmp; }
+
+        // Fetch all orders in range
+        $stmt = $pdo->prepare("SELECT cart_details, created_at, total_amount FROM orders WHERE is_deleted=0 AND DATE(created_at) BETWEEN ? AND ? ORDER BY created_at ASC");
+        $stmt->execute([$date_from, $date_to]);
+        $orders = $stmt->fetchAll();
+
+        // --- Daily breakdown ---
+        $daily_map  = [];
+        $daily_rev  = [];
+        $dt = new DateTime($date_from);
+        $dtEnd = new DateTime($date_to);
+        while ($dt <= $dtEnd) {
+            $key = $dt->format('Y-m-d');
+            $daily_map[$key] = 0;
+            $daily_rev[$key] = 0.0;
+            $dt->modify('+1 day');
+        }
+
+        // --- Monthly breakdown ---
+        $monthly_map = [];
+        $monthly_rev = [];
+
+        // --- Category breakdown ---
+        $category_sales = ['Chocolates' => 0, 'Cosmetics' => 0, 'Nuts' => 0];
+        $category_rev   = ['Chocolates' => 0.0, 'Cosmetics' => 0.0, 'Nuts' => 0.0];
+
+        // Product-level sold counts
+        $product_sales = [];
+
+        // Fetch product prices
+        $prices = [];
+        $pstmt  = $pdo->query("SELECT id, price FROM products");
+        foreach ($pstmt->fetchAll() as $pr) { $prices[$pr['id']] = (float)$pr['price']; }
+
+        foreach ($orders as $order) {
+            $day   = substr($order['created_at'], 0, 10);
+            $month = substr($order['created_at'], 0, 7);
+            $items = json_decode($order['cart_details'], true);
+            if (!is_array($items)) continue;
+            foreach ($items as $item) {
+                $qty  = (int)($item['quantity'] ?? 0);
+                $pid  = $item['id'] ?? null;
+                $cat  = $item['category'] ?? '';
+                $name = $item['name'] ?? 'Unknown';
+                $price = $pid && isset($prices[$pid]) ? $prices[$pid] : (float)($item['price'] ?? 0);
+                $rev  = $qty * $price;
+
+                if (isset($daily_map[$day])) {
+                    $daily_map[$day] += $qty;
+                    $daily_rev[$day] += $rev;
+                }
+                $monthly_map[$month] = ($monthly_map[$month] ?? 0) + $qty;
+                $monthly_rev[$month] = ($monthly_rev[$month] ?? 0.0) + $rev;
+
+                if (isset($category_sales[$cat])) {
+                    $category_sales[$cat] += $qty;
+                    $category_rev[$cat]   += $rev;
+                }
+
+                if ($pid) {
+                    if (!isset($product_sales[$pid])) $product_sales[$pid] = ['name' => $name, 'sold' => 0, 'revenue' => 0.0];
+                    $product_sales[$pid]['sold']    += $qty;
+                    $product_sales[$pid]['revenue'] += $rev;
+                }
+            }
+        }
+
+        // Sort monthly labels
+        ksort($monthly_map);
+
+        $daily_labels   = [];
+        $daily_values   = [];
+        $daily_revenues = [];
+        foreach ($daily_map as $d => $qty) {
+            $daily_labels[]   = date('M d', strtotime($d));
+            $daily_values[]   = $qty;
+            $daily_revenues[] = round($daily_rev[$d], 2);
+        }
+
+        $monthly_labels   = [];
+        $monthly_values   = [];
+        $monthly_revenues = [];
+        foreach ($monthly_map as $m => $qty) {
+            $monthly_labels[]   = date('M Y', strtotime($m . '-01'));
+            $monthly_values[]   = $qty;
+            $monthly_revenues[] = round($monthly_rev[$m], 2);
+        }
+
+        echo json_encode([
+            'success'          => true,
+            'date_from'        => $date_from,
+            'date_to'          => $date_to,
+            'daily_labels'     => $daily_labels,
+            'daily_values'     => $daily_values,
+            'daily_revenues'   => $daily_revenues,
+            'monthly_labels'   => $monthly_labels,
+            'monthly_values'   => $monthly_values,
+            'monthly_revenues' => $monthly_revenues,
+            'category_sales'   => $category_sales,
+            'category_rev'     => $category_rev,
+            'product_sales'    => array_values($product_sales),
+            'total_units'      => array_sum($daily_values),
+            'total_revenue'    => round(array_sum($daily_revenues), 2),
+        ]);
+    } catch (PDOException $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+    exit;
+}
+
 echo json_encode(['success' => false, 'message' => 'Invalid action']);
 ?>
