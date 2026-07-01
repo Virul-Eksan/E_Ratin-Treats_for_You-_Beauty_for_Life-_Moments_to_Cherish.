@@ -1064,7 +1064,7 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                     <h4 style="margin:0 0 18px; color:#ec4899;">🛍️ Item-wise Profit</h4>
                     <div class="table-responsive">
                         <table>
-                            <thead><tr><th>Item Name</th><th>Category</th><th>Units Sold</th><th>Revenue</th><th>Profit</th></tr></thead>
+                            <thead><tr><th>Item Name</th><th>Category</th><th>Cost ($)</th><th>Price ($)</th><th>Units Sold</th><th>Revenue</th><th>Profit</th></tr></thead>
                             <tbody id="profit-item-tbody"></tbody>
                         </table>
                     </div>
@@ -2252,11 +2252,13 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                     itemTbody.innerHTML = '';
                     const items = data.product_sales.sort((a,b) => b.profit - a.profit);
                     if (items.length === 0) {
-                        itemTbody.innerHTML = '<tr><td colspan="5">No items sold in this period</td></tr>';
+                        itemTbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">No items sold in this period</td></tr>';
                     } else {
                         items.forEach(it => {
                             itemTbody.innerHTML += `<tr>
-                                <td>${it.name}</td><td>${it.category}</td><td>${it.sold}</td><td>$${it.revenue.toFixed(2)}</td>
+                                <td>${it.name}</td><td>${it.category}</td>
+                                <td>$${(it.unit_cost||0).toFixed(2)}</td><td>$${(it.unit_price||0).toFixed(2)}</td>
+                                <td>${it.sold}</td><td>$${it.revenue.toFixed(2)}</td>
                                 <td style="color:#ec4899; font-weight:bold;">$${it.profit.toFixed(2)}</td>
                             </tr>`;
                         });

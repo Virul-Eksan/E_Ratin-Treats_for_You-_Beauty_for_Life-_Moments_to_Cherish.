@@ -291,9 +291,9 @@ if ($action === 'get_sales_report') {
         $monthly_prof = [];
 
         // --- Category breakdown ---
-        $category_sales = ['Chocolates' => 0, 'Cosmetics' => 0, 'Nuts' => 0];
-        $category_rev   = ['Chocolates' => 0.0, 'Cosmetics' => 0.0, 'Nuts' => 0.0];
-        $category_prof  = ['Chocolates' => 0.0, 'Cosmetics' => 0.0, 'Nuts' => 0.0];
+        $category_sales = [];
+        $category_rev   = [];
+        $category_prof  = [];
 
         // Product-level sold counts
         $product_sales = [];
@@ -331,14 +331,23 @@ if ($action === 'get_sales_report') {
                 $monthly_rev[$month] = ($monthly_rev[$month] ?? 0.0) + $rev;
                 $monthly_prof[$month] = ($monthly_prof[$month] ?? 0.0) + $prof;
 
-                if (isset($category_sales[$cat])) {
-                    $category_sales[$cat] += $qty;
-                    $category_rev[$cat]   += $rev;
-                    $category_prof[$cat]  += $prof;
+                if (!isset($category_sales[$cat])) {
+                    $category_sales[$cat] = 0;
+                    $category_rev[$cat]   = 0.0;
+                    $category_prof[$cat]  = 0.0;
                 }
+                $category_sales[$cat] += $qty;
+                $category_rev[$cat]   += $rev;
+                $category_prof[$cat]  += $prof;
 
                 if ($pid) {
-                    if (!isset($product_sales[$pid])) $product_sales[$pid] = ['name' => $name, 'category' => $cat, 'sold' => 0, 'revenue' => 0.0, 'profit' => 0.0];
+                    if (!isset($product_sales[$pid])) {
+                        $product_sales[$pid] = [
+                            'name' => $name, 'category' => $cat, 
+                            'unit_cost' => $cost, 'unit_price' => $price,
+                            'sold' => 0, 'revenue' => 0.0, 'profit' => 0.0
+                        ];
+                    }
                     $product_sales[$pid]['sold']    += $qty;
                     $product_sales[$pid]['revenue'] += $rev;
                     $product_sales[$pid]['profit']  += $prof;
