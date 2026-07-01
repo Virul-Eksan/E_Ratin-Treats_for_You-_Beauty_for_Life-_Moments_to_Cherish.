@@ -839,6 +839,10 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                     style="display:flex; align-items:center; gap:8px; padding:12px 28px; border-radius:30px; border:2px solid rgba(96,165,250,0.3); background:transparent; color:#94a3b8; font-size:1rem; font-weight:700; cursor:pointer; transition:all .25s;">
                     📦 Stock Report
                 </button>
+                <button id="btn-profit-report" class="report-sub-tab-btn" onclick="switchReportTab('profit')"
+                    style="display:flex; align-items:center; gap:8px; padding:12px 28px; border-radius:30px; border:2px solid rgba(236,72,153,0.3); background:transparent; color:#94a3b8; font-size:1rem; font-weight:700; cursor:pointer; transition:all .25s;">
+                    💰 Profit Report
+                </button>
             </div>
 
             <!-- ===== SALES REPORT SUB-TAB ===== -->
@@ -1016,6 +1020,52 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                             <tbody id="stock-report-tbody">
                                 <tr><td colspan="5" style="text-align:center; color:#94a3b8; padding:30px;">Click "Reports" to load data…</td></tr>
                             </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== PROFIT REPORT SUB-TAB ===== -->
+            <div id="sub-profit-report" class="hidden">
+                <!-- Header -->
+                <div class="card" style="margin-bottom:20px; padding:20px 25px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                    <div>
+                        <h3 style="margin:0 0 4px; font-size:1.4rem;">💰 Profit Report</h3>
+                        <p style="margin:0; color:#94a3b8; font-size:0.88rem;">Category and item-wise profit analysis</p>
+                    </div>
+                </div>
+
+                <!-- Date Range Picker -->
+                <div class="card" style="padding:18px 24px; margin-bottom:22px; display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+                    <span style="color:#94a3b8; font-size:0.9rem; font-weight:600;">📅 Date Range:</span>
+                    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                        <input type="date" id="profit-date-from" style="padding:8px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.15); background:rgba(0,0,0,0.3); color:white; font-family:inherit; font-size:0.9rem; outline:none;">
+                        <span style="color:#94a3b8;">to</span>
+                        <input type="date" id="profit-date-to" style="padding:8px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.15); background:rgba(0,0,0,0.3); color:white; font-family:inherit; font-size:0.9rem; outline:none;">
+                        <button onclick="loadProfitReport()" style="padding:8px 20px; border-radius:8px; border:none; background:linear-gradient(135deg,#ec4899,#db2777); color:white; font-weight:700; cursor:pointer; font-size:0.9rem; transition:all .2s;">Apply</button>
+                        <button onclick="setProfitRange(7)" style="padding:8px 14px; border-radius:8px; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.06); color:#cbd5e1; font-size:0.82rem; cursor:pointer;">7 Days</button>
+                        <button onclick="setProfitRange(30)" style="padding:8px 14px; border-radius:8px; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.06); color:#cbd5e1; font-size:0.82rem; cursor:pointer;">30 Days (Month)</button>
+                    </div>
+                </div>
+
+                <!-- Category Profit Table -->
+                <div class="card" style="padding:24px; margin-bottom:20px;">
+                    <h4 style="margin:0 0 18px; color:#ec4899;">📦 Category-wise Profit</h4>
+                    <div class="table-responsive">
+                        <table>
+                            <thead><tr><th>Category</th><th>Units Sold</th><th>Revenue</th><th>Profit</th></tr></thead>
+                            <tbody id="profit-cat-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Item Profit Table -->
+                <div class="card" style="padding:24px;">
+                    <h4 style="margin:0 0 18px; color:#ec4899;">🛍️ Item-wise Profit</h4>
+                    <div class="table-responsive">
+                        <table>
+                            <thead><tr><th>Item Name</th><th>Category</th><th>Units Sold</th><th>Revenue</th><th>Profit</th></tr></thead>
+                            <tbody id="profit-item-tbody"></tbody>
                         </table>
                     </div>
                 </div>
@@ -1987,20 +2037,31 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
             window.switchReportTab = function(tab) {
                 const salesDiv = document.getElementById('sub-sales-report');
                 const stockDiv = document.getElementById('sub-stock-report');
+                const profitDiv = document.getElementById('sub-profit-report');
                 const btnSales = document.getElementById('btn-sales-report');
                 const btnStock = document.getElementById('btn-stock-report');
+                const btnProfit = document.getElementById('btn-profit-report');
+
+                salesDiv.classList.add('hidden');
+                stockDiv.classList.add('hidden');
+                profitDiv.classList.add('hidden');
+                
+                btnSales.style.cssText = 'display:flex;align-items:center;gap:8px;padding:12px 28px;border-radius:30px;border:2px solid rgba(251,191,36,0.2);background:transparent;color:#94a3b8;font-size:1rem;font-weight:700;cursor:pointer;transition:all .25s;';
+                btnStock.style.cssText = 'display:flex;align-items:center;gap:8px;padding:12px 28px;border-radius:30px;border:2px solid rgba(96,165,250,0.3);background:transparent;color:#94a3b8;font-size:1rem;font-weight:700;cursor:pointer;transition:all .25s;';
+                btnProfit.style.cssText = 'display:flex;align-items:center;gap:8px;padding:12px 28px;border-radius:30px;border:2px solid rgba(236,72,153,0.3);background:transparent;color:#94a3b8;font-size:1rem;font-weight:700;cursor:pointer;transition:all .25s;';
+
                 if (tab === 'sales') {
                     salesDiv.classList.remove('hidden');
-                    stockDiv.classList.add('hidden');
                     btnSales.style.cssText = 'display:flex;align-items:center;gap:8px;padding:12px 28px;border-radius:30px;border:2px solid rgba(251,191,36,0.5);background:rgba(251,191,36,0.12);color:#fbbf24;font-size:1rem;font-weight:700;cursor:pointer;transition:all .25s;';
-                    btnStock.style.cssText = 'display:flex;align-items:center;gap:8px;padding:12px 28px;border-radius:30px;border:2px solid rgba(96,165,250,0.3);background:transparent;color:#94a3b8;font-size:1rem;font-weight:700;cursor:pointer;transition:all .25s;';
                     if (!window._salesLoaded) loadSalesReport();
-                } else {
-                    salesDiv.classList.add('hidden');
+                } else if (tab === 'stock') {
                     stockDiv.classList.remove('hidden');
                     btnStock.style.cssText = 'display:flex;align-items:center;gap:8px;padding:12px 28px;border-radius:30px;border:2px solid rgba(96,165,250,0.5);background:rgba(96,165,250,0.12);color:#60a5fa;font-size:1rem;font-weight:700;cursor:pointer;transition:all .25s;';
-                    btnSales.style.cssText = 'display:flex;align-items:center;gap:8px;padding:12px 28px;border-radius:30px;border:2px solid rgba(251,191,36,0.2);background:transparent;color:#94a3b8;font-size:1rem;font-weight:700;cursor:pointer;transition:all .25s;';
                     setTimeout(loadStockReport, 120);
+                } else if (tab === 'profit') {
+                    profitDiv.classList.remove('hidden');
+                    btnProfit.style.cssText = 'display:flex;align-items:center;gap:8px;padding:12px 28px;border-radius:30px;border:2px solid rgba(236,72,153,0.5);background:rgba(236,72,153,0.12);color:#ec4899;font-size:1rem;font-weight:700;cursor:pointer;transition:all .25s;';
+                    if (!window._profitLoaded) loadProfitReport();
                 }
             };
 
@@ -2137,6 +2198,70 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                     }
 
                 } catch(e) { console.error('Sales report failed:', e); }
+            };
+
+            // =============================================
+            // --- Profit Report JS Logic ---
+            // =============================================
+            window.setProfitRange = function(days) {
+                const to   = new Date();
+                const from = new Date();
+                from.setDate(from.getDate() - (days - 1));
+                document.getElementById('profit-date-from').value = from.toISOString().slice(0,10);
+                document.getElementById('profit-date-to').value   = to.toISOString().slice(0,10);
+                loadProfitReport();
+            };
+
+            (function initProfitDates() {
+                const to   = new Date();
+                const from = new Date();
+                from.setDate(from.getDate() - 6);
+                document.getElementById('profit-date-from').value = from.toISOString().slice(0,10);
+                document.getElementById('profit-date-to').value   = to.toISOString().slice(0,10);
+            })();
+
+            window.loadProfitReport = async function() {
+                const from = document.getElementById('profit-date-from').value;
+                const to   = document.getElementById('profit-date-to').value;
+                if (!from || !to) return;
+                try {
+                    const res  = await fetch(`api.php?action=get_sales_report&date_from=${from}&date_to=${to}&_t=${Date.now()}`);
+                    const data = await res.json();
+                    if (!data.success) return;
+                    window._profitLoaded = true;
+
+                    const catTbody = document.getElementById('profit-cat-tbody');
+                    catTbody.innerHTML = '';
+                    let tSold=0, tRev=0, tProf=0;
+                    for (const cat in data.category_sales) {
+                        const s = data.category_sales[cat] || 0;
+                        const r = data.category_rev[cat] || 0;
+                        const p = data.category_prof[cat] || 0;
+                        tSold+=s; tRev+=r; tProf+=p;
+                        catTbody.innerHTML += `<tr>
+                            <td>${cat}</td><td>${s}</td><td>$${r.toFixed(2)}</td>
+                            <td style="color:#ec4899; font-weight:bold;">$${p.toFixed(2)}</td>
+                        </tr>`;
+                    }
+                    catTbody.innerHTML += `<tr style="background:rgba(255,255,255,0.05); font-weight:bold;">
+                        <td>TOTAL</td><td>${tSold}</td><td>$${tRev.toFixed(2)}</td>
+                        <td style="color:#ec4899;">$${tProf.toFixed(2)}</td>
+                    </tr>`;
+
+                    const itemTbody = document.getElementById('profit-item-tbody');
+                    itemTbody.innerHTML = '';
+                    const items = data.product_sales.sort((a,b) => b.profit - a.profit);
+                    if (items.length === 0) {
+                        itemTbody.innerHTML = '<tr><td colspan="5">No items sold in this period</td></tr>';
+                    } else {
+                        items.forEach(it => {
+                            itemTbody.innerHTML += `<tr>
+                                <td>${it.name}</td><td>${it.category}</td><td>${it.sold}</td><td>$${it.revenue.toFixed(2)}</td>
+                                <td style="color:#ec4899; font-weight:bold;">$${it.profit.toFixed(2)}</td>
+                            </tr>`;
+                        });
+                    }
+                } catch(e) { console.error('Profit report failed', e); }
             };
 
             // Load when Reports nav tab is clicked

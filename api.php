@@ -274,30 +274,38 @@ if ($action === 'get_sales_report') {
         // --- Daily breakdown ---
         $daily_map  = [];
         $daily_rev  = [];
+        $daily_prof = [];
         $dt = new DateTime($date_from);
         $dtEnd = new DateTime($date_to);
         while ($dt <= $dtEnd) {
             $key = $dt->format('Y-m-d');
             $daily_map[$key] = 0;
             $daily_rev[$key] = 0.0;
+            $daily_prof[$key] = 0.0;
             $dt->modify('+1 day');
         }
 
         // --- Monthly breakdown ---
-        $monthly_map = [];
-        $monthly_rev = [];
+        $monthly_map  = [];
+        $monthly_rev  = [];
+        $monthly_prof = [];
 
         // --- Category breakdown ---
         $category_sales = ['Chocolates' => 0, 'Cosmetics' => 0, 'Nuts' => 0];
         $category_rev   = ['Chocolates' => 0.0, 'Cosmetics' => 0.0, 'Nuts' => 0.0];
+        $category_prof  = ['Chocolates' => 0.0, 'Cosmetics' => 0.0, 'Nuts' => 0.0];
 
         // Product-level sold counts
         $product_sales = [];
 
-        // Fetch product prices
+        // Fetch product prices and costs
         $prices = [];
-        $pstmt  = $pdo->query("SELECT id, price FROM products");
-        foreach ($pstmt->fetchAll() as $pr) { $prices[$pr['id']] = (float)$pr['price']; }
+        $costs  = [];
+        $pstmt  = $pdo->query("SELECT id, price, cost FROM products");
+        foreach ($pstmt->fetchAll() as $pr) { 
+            $prices[$pr['id']] = (float)$pr['price']; 
+            $costs[$pr['id']]  = (float)$pr['cost']; 
+        }
 
         foreach ($orders as $order) {
             $day   = substr($order['created_at'], 0, 10);
@@ -310,24 +318,30 @@ if ($action === 'get_sales_report') {
                 $cat  = $item['category'] ?? '';
                 $name = $item['name'] ?? 'Unknown';
                 $price = $pid && isset($prices[$pid]) ? $prices[$pid] : (float)($item['price'] ?? 0);
-                $rev  = $qty * $price;
+                $cost  = $pid && isset($costs[$pid]) ? $costs[$pid] : 0.0;
+                $rev   = $qty * $price;
+                $prof  = $rev - ($qty * $cost);
 
                 if (isset($daily_map[$day])) {
                     $daily_map[$day] += $qty;
                     $daily_rev[$day] += $rev;
+                    $daily_prof[$day] += $prof;
                 }
                 $monthly_map[$month] = ($monthly_map[$month] ?? 0) + $qty;
                 $monthly_rev[$month] = ($monthly_rev[$month] ?? 0.0) + $rev;
+                $monthly_prof[$month] = ($monthly_prof[$month] ?? 0.0) + $prof;
 
                 if (isset($category_sales[$cat])) {
                     $category_sales[$cat] += $qty;
                     $category_rev[$cat]   += $rev;
+                    $category_prof[$cat]  += $prof;
                 }
 
                 if ($pid) {
-                    if (!isset($product_sales[$pid])) $product_sales[$pid] = ['name' => $name, 'sold' => 0, 'revenue' => 0.0];
+                    if (!isset($product_sales[$pid])) $product_sales[$pid] = ['name' => $name, 'category' => $cat, 'sold' => 0, 'revenue' => 0.0, 'profit' => 0.0];
                     $product_sales[$pid]['sold']    += $qty;
                     $product_sales[$pid]['revenue'] += $rev;
+                    $product_sales[$pid]['profit']  += $prof;
                 }
             }
         }
@@ -338,10 +352,12 @@ if ($action === 'get_sales_report') {
         $daily_labels   = [];
         $daily_values   = [];
         $daily_revenues = [];
+        $daily_profits  = [];
         foreach ($daily_map as $d => $qty) {
             $daily_labels[]   = date('M d', strtotime($d));
             $daily_values[]   = $qty;
             $daily_revenues[] = round($daily_rev[$d], 2);
+            $daily_profits[]  = round($daily_prof[$d], 2);
         }
 
         $monthly_labels   = [];
@@ -360,14 +376,17 @@ if ($action === 'get_sales_report') {
             'daily_labels'     => $daily_labels,
             'daily_values'     => $daily_values,
             'daily_revenues'   => $daily_revenues,
+            'daily_profits'    => $daily_profits,
             'monthly_labels'   => $monthly_labels,
             'monthly_values'   => $monthly_values,
             'monthly_revenues' => $monthly_revenues,
             'category_sales'   => $category_sales,
             'category_rev'     => $category_rev,
+            'category_prof'    => $category_prof,
             'product_sales'    => array_values($product_sales),
             'total_units'      => array_sum($daily_values),
             'total_revenue'    => round(array_sum($daily_revenues), 2),
+            'total_profit'     => round(array_sum($daily_profits), 2),
         ]);
     } catch (PDOException $e) {
         echo json_encode(['success' => false, 'message' => $e->getMessage()]);
