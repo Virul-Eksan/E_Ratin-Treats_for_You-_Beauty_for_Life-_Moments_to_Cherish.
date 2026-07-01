@@ -22,6 +22,7 @@ try {
         description TEXT NOT NULL,
         category VARCHAR(100) NOT NULL,
         image_path VARCHAR(255) NOT NULL,
+        cost DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
         price DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
         stock INT NOT NULL DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -29,8 +30,9 @@ try {
     
     $pdo->exec($sql);
     
-    // Ensure existing products table is updated with stock column
+    // Ensure existing products table is updated with stock and cost columns
     try { $pdo->exec("ALTER TABLE products ADD COLUMN stock INT NOT NULL DEFAULT 0"); } catch (PDOException $e) {}
+    try { $pdo->exec("ALTER TABLE products ADD COLUMN cost DECIMAL(10, 2) NOT NULL DEFAULT 0.00"); } catch (PDOException $e) {}
     
     // Create customers table
     $sql_customers = "CREATE TABLE IF NOT EXISTS customers (

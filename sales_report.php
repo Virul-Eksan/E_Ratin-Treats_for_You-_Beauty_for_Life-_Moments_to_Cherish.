@@ -12,7 +12,7 @@ if ($date_from && $date_to) {
 }
 
 // --- Fetch Products ---
-$products = $pdo->query("SELECT id, name, category, stock, price FROM products ORDER BY category, name")->fetchAll();
+$products = $pdo->query("SELECT id, name, category, stock, price, cost FROM products ORDER BY category, name")->fetchAll();
 
 if ($is_custom) {
     // --- Period Sales ---
@@ -64,22 +64,26 @@ if ($is_custom) {
 
 // --- Build Report ---
 $by_cat = [];
-$grand_today_sold = 0; $grand_today_rev = 0;
-$grand_month_sold = 0; $grand_month_rev = 0;
+$grand_today_sold = 0; $grand_today_rev = 0; $grand_today_prof = 0;
+$grand_month_sold = 0; $grand_month_rev = 0; $grand_month_prof = 0;
 foreach ($products as $p) {
     $pid = $p['id'];
     $ts  = $today_map[$pid] ?? 0;
     $ms  = $month_map[$pid] ?? 0;
     $tr  = round($ts * (float)$p['price'], 2);
+    $tc  = round($ts * (float)$p['cost'], 2);
+    $tp  = $tr - $tc;
     $mr  = round($ms * (float)$p['price'], 2);
-    $grand_today_sold += $ts; $grand_today_rev += $tr;
-    $grand_month_sold += $ms; $grand_month_rev += $mr;
+    $mc  = round($ms * (float)$p['cost'], 2);
+    $mp  = $mr - $mc;
+    $grand_today_sold += $ts; $grand_today_rev += $tr; $grand_today_prof += $tp;
+    $grand_month_sold += $ms; $grand_month_rev += $mr; $grand_month_prof += $mp;
     $by_cat[$p['category']][] = [
-        'name' => $p['name'], 'price' => (float)$p['price'],
+        'name' => $p['name'], 'price' => (float)$p['price'], 'cost' => (float)$p['cost'],
         'stock' => (int)$p['stock'],
         'morning_stock' => (int)$p['stock'] + $ts,
-        'today_sold' => $ts, 'today_rev' => $tr,
-        'month_sold' => $ms, 'month_rev' => $mr,
+        'today_sold' => $ts, 'today_rev' => $tr, 'today_prof' => $tp,
+        'month_sold' => $ms, 'month_rev' => $mr, 'month_prof' => $mp,
     ];
 }
 
@@ -241,7 +245,7 @@ $svg_w = max(600, count($chart_items) * ($bar_w + $bar_gap) + $chart_pad * 2);
   </div>
 
   <!-- STAT CARDS -->
-  <div class="stat-row">
+  <div class="stat-row" style="grid-template-columns:repeat(3,1fr);">
     <div class="stat-card">
       <div class="stat-num" style="color:var(--yellow)"><?php echo $grand_today_sold; ?></div>
       <div class="stat-label"><?php echo $is_custom ? 'Units Sold (Period)' : 'Units Sold Today'; ?></div>
@@ -251,12 +255,20 @@ $svg_w = max(600, count($chart_items) * ($bar_w + $bar_gap) + $chart_pad * 2);
       <div class="stat-label"><?php echo $is_custom ? 'Period Revenue' : "Today's Revenue"; ?></div>
     </div>
     <div class="stat-card">
+      <div class="stat-num" style="color:#ec4899">$<?php echo number_format($grand_today_prof,2); ?></div>
+      <div class="stat-label"><?php echo $is_custom ? 'Period Profit' : "Today's Profit"; ?></div>
+    </div>
+    <div class="stat-card">
       <div class="stat-num" style="color:var(--blue)"><?php echo $grand_month_sold; ?></div>
       <div class="stat-label"><?php echo $is_custom ? 'Units Sold in Months' : 'Units Sold This Month'; ?></div>
     </div>
     <div class="stat-card">
       <div class="stat-num" style="color:#c084fc">$<?php echo number_format($grand_month_rev,2); ?></div>
       <div class="stat-label"><?php echo $is_custom ? 'Months Revenue' : 'Monthly Revenue'; ?></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num" style="color:#f43f5e">$<?php echo number_format($grand_month_prof,2); ?></div>
+      <div class="stat-label"><?php echo $is_custom ? 'Months Profit' : 'Monthly Profit'; ?></div>
     </div>
   </div>
 
@@ -270,6 +282,7 @@ $svg_w = max(600, count($chart_items) * ($bar_w + $bar_gap) + $chart_pad * 2);
     $cc = $cat_colors[$cat] ?? ['#334155','#64748b'];
     $cat_ts = array_sum(array_column($items,'today_sold'));
     $cat_tr = array_sum(array_column($items,'today_rev'));
+    $cat_tp = array_sum(array_column($items,'today_prof'));
   ?>
   <div class="cat-block">
     <div class="cat-header" style="background:<?php echo $cc[0]; ?>">📦 <?php echo htmlspecialchars($cat); ?></div>
@@ -277,7 +290,10 @@ $svg_w = max(600, count($chart_items) * ($bar_w + $bar_gap) + $chart_pad * 2);
       <thead>
         <tr>
           <th>Product</th><th>Unit Price</th><th>Morning Stock</th>
-          <th><?php echo $is_custom ? 'Sold in Period' : 'Sold Today'; ?></th><th><?php echo $is_custom ? 'Period Revenue' : 'Today Revenue'; ?></th><th>Remaining Stock</th>
+          <th><?php echo $is_custom ? 'Sold in Period' : 'Sold Today'; ?></th>
+          <th><?php echo $is_custom ? 'Period Revenue' : 'Today Revenue'; ?></th>
+          <th><?php echo $is_custom ? 'Period Profit' : 'Today Profit'; ?></th>
+          <th>Remaining Stock</th>
         </tr>
       </thead>
       <tbody>
@@ -290,6 +306,7 @@ $svg_w = max(600, count($chart_items) * ($bar_w + $bar_gap) + $chart_pad * 2);
           <td><?php echo $r['morning_stock']; ?></td>
           <td class="sold-num"><?php echo $r['today_sold']; ?></td>
           <td>$<?php echo number_format($r['today_rev'],2); ?></td>
+          <td>$<?php echo number_format($r['today_prof'],2); ?></td>
           <td class="<?php echo $sc; ?>"><?php echo $r['stock']; ?></td>
         </tr>
         <?php endforeach; ?>
@@ -297,6 +314,7 @@ $svg_w = max(600, count($chart_items) * ($bar_w + $bar_gap) + $chart_pad * 2);
           <td>Subtotal</td><td></td><td></td>
           <td><?php echo $cat_ts; ?></td>
           <td>$<?php echo number_format($cat_tr,2); ?></td>
+          <td>$<?php echo number_format($cat_tp,2); ?></td>
           <td></td>
         </tr>
       </tbody>
@@ -311,6 +329,7 @@ $svg_w = max(600, count($chart_items) * ($bar_w + $bar_gap) + $chart_pad * 2);
         <td>🏆 <?php echo $is_custom ? 'PERIOD' : 'DAILY'; ?> GRAND TOTAL</td><td></td><td></td>
         <td><?php echo $grand_today_sold; ?> units</td>
         <td>$<?php echo number_format($grand_today_rev,2); ?></td>
+        <td>$<?php echo number_format($grand_today_prof,2); ?></td>
         <td></td>
       </tr>
     </tbody>
@@ -391,6 +410,7 @@ $svg_w = max(600, count($chart_items) * ($bar_w + $bar_gap) + $chart_pad * 2);
     $cc = $cat_colors[$cat] ?? ['#334155','#64748b'];
     $cat_ms = array_sum(array_column($items,'month_sold'));
     $cat_mr = array_sum(array_column($items,'month_rev'));
+    $cat_mp = array_sum(array_column($items,'month_prof'));
   ?>
   <div class="cat-block">
     <div class="cat-header" style="background:<?php echo $cc[0]; ?>">📦 <?php echo htmlspecialchars($cat); ?></div>
@@ -398,7 +418,7 @@ $svg_w = max(600, count($chart_items) * ($bar_w + $bar_gap) + $chart_pad * 2);
       <thead>
         <tr>
           <th>Product</th><th>Unit Price</th>
-          <th>Sold This Month</th><th>Monthly Revenue</th><th>Remaining Stock</th>
+          <th>Sold This Month</th><th>Monthly Revenue</th><th>Monthly Profit</th><th>Remaining Stock</th>
         </tr>
       </thead>
       <tbody>
@@ -410,6 +430,7 @@ $svg_w = max(600, count($chart_items) * ($bar_w + $bar_gap) + $chart_pad * 2);
           <td>$<?php echo number_format($r['price'],2); ?></td>
           <td class="sold-num"><?php echo $r['month_sold']; ?></td>
           <td>$<?php echo number_format($r['month_rev'],2); ?></td>
+          <td>$<?php echo number_format($r['month_prof'],2); ?></td>
           <td class="<?php echo $sc; ?>"><?php echo $r['stock']; ?></td>
         </tr>
         <?php endforeach; ?>
@@ -417,6 +438,7 @@ $svg_w = max(600, count($chart_items) * ($bar_w + $bar_gap) + $chart_pad * 2);
           <td>Subtotal</td><td></td>
           <td><?php echo $cat_ms; ?></td>
           <td>$<?php echo number_format($cat_mr,2); ?></td>
+          <td>$<?php echo number_format($cat_mp,2); ?></td>
           <td></td>
         </tr>
       </tbody>
@@ -431,6 +453,7 @@ $svg_w = max(600, count($chart_items) * ($bar_w + $bar_gap) + $chart_pad * 2);
         <td>🏆 MONTHLY GRAND TOTAL</td><td></td>
         <td><?php echo $grand_month_sold; ?> units</td>
         <td>$<?php echo number_format($grand_month_rev,2); ?></td>
+        <td>$<?php echo number_format($grand_month_prof,2); ?></td>
         <td></td>
       </tr>
     </tbody>

@@ -20,6 +20,9 @@ if (isset($_GET['success'])) {
     } elseif ($_GET['success'] === 'price') {
         $message = "Price updated successfully.";
         $active_tab = 'view-stock';
+    } elseif ($_GET['success'] === 'cost') {
+        $message = "Cost updated successfully.";
+        $active_tab = 'view-stock';
     } elseif ($_GET['success'] === 'blacklist') {
         $message = "Customer blacklisted successfully.";
         $active_tab = 'view-customers';
@@ -171,6 +174,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_price'])) {
     }
 }
 
+// Handle Update Cost
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_cost'])) {
+    $id = $_POST['update_cost_id'];
+    $cost = $_POST['new_cost'];
+    $stmt = $pdo->prepare("UPDATE products SET cost = ? WHERE id = ?");
+    if ($stmt->execute([$cost, $id])) {
+        // Redirect to avoid form resubmission on refresh
+        header("Location: admin.php?success=cost&id={$id}");
+        exit();
+    }
+}
+
 // Handle Blacklist Customer
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_blacklist'])) {
     $cust_id = $_POST['blacklist_customer_id'];
@@ -227,6 +242,7 @@ if (isset($_GET['delete_review'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_product'])) {
     $name = $_POST['name'];
     $category = $_POST['category'];
+    $cost = $_POST['cost'];
     $price = $_POST['price'];
     $stock = $_POST['stock'];
     $description = $_POST['description'];
@@ -249,8 +265,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_product'])) {
     }
     
     if ($imagePath) {
-        $stmt = $pdo->prepare("INSERT INTO products (name, description, category, price, stock, image_path) VALUES (?, ?, ?, ?, ?, ?)");
-        if ($stmt->execute([$name, $description, $category, $price, $stock, $imagePath])) {
+        $stmt = $pdo->prepare("INSERT INTO products (name, description, category, cost, price, stock, image_path) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        if ($stmt->execute([$name, $description, $category, $cost, $price, $stock, $imagePath])) {
             header("Location: admin.php?success=1");
             exit();
         } else {
@@ -443,7 +459,11 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Price ($)</label>
+                        <label>Cost ($)</label>
+                        <input type="number" step="0.01" name="cost" required placeholder="5.99">
+                    </div>
+                    <div class="form-group">
+                        <label>Selling Price ($)</label>
                         <input type="number" step="0.01" name="price" required placeholder="9.99">
                     </div>
                     <div class="form-group">
@@ -475,6 +495,7 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                                 <th>Image</th>
                                 <th>Name</th>
                                 <th>Category</th>
+                                <th>Cost</th>
                                 <th>Price</th>
                                 <th>Stock</th>
                                 <th>Actions</th>
@@ -486,6 +507,14 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                                 <td><img src="<?php echo htmlspecialchars($p['image_path']); ?>" alt="product" width="50"></td>
                                 <td><?php echo htmlspecialchars($p['name']); ?></td>
                                 <td><span class="badge <?php echo strtolower($p['category']); ?>"><?php echo htmlspecialchars($p['category']); ?></span></td>
+                                <td>
+                                    <form action="admin.php" method="POST" style="display: flex; gap: 5px; align-items: center; justify-content: center;">
+                                        <input type="hidden" name="update_cost_id" value="<?php echo $p['id']; ?>">
+                                        <span style="color: white; margin-right: 2px;">$</span>
+                                        <input type="number" name="new_cost" value="<?php echo htmlspecialchars($p['cost'] ?? 0.00); ?>" step="0.01" min="0" style="width: 70px; padding: 4px; border-radius: 4px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.2); color: white;">
+                                        <button type="submit" name="update_cost" class="btn-submit" style="padding: 4px 10px; font-size: 0.8rem; border-radius: 4px;">Save</button>
+                                    </form>
+                                </td>
                                 <td>
                                     <form action="admin.php" method="POST" style="display: flex; gap: 5px; align-items: center; justify-content: center;">
                                         <input type="hidden" name="update_price_id" value="<?php echo $p['id']; ?>">
@@ -853,6 +882,10 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                     <div class="card" style="padding:20px; text-align:center; background:linear-gradient(135deg,rgba(52,211,153,0.12),rgba(16,185,129,0.04)); border:1px solid rgba(52,211,153,0.3);">
                         <div id="sr-stat-revenue" style="font-size:2rem; font-weight:700; color:#34d399;">—</div>
                         <div style="color:#94a3b8; font-size:0.8rem; margin-top:4px;">Total Revenue</div>
+                    </div>
+                    <div class="card" style="padding:20px; text-align:center; background:linear-gradient(135deg,rgba(236,72,153,0.12),rgba(219,39,119,0.04)); border:1px solid rgba(236,72,153,0.3);">
+                        <div id="sr-stat-profit" style="font-size:2rem; font-weight:700; color:#ec4899;">—</div>
+                        <div style="color:#94a3b8; font-size:0.8rem; margin-top:4px;">Total Profit</div>
                     </div>
                     <div class="card" style="padding:20px; text-align:center; background:linear-gradient(135deg,rgba(139,92,246,0.12),rgba(109,40,217,0.04)); border:1px solid rgba(139,92,246,0.3);">
                         <div id="sr-stat-days" style="font-size:2rem; font-weight:700; color:#a78bfa;">—</div>
@@ -2009,6 +2042,7 @@ $smtp_password = $settings_rows['smtp_password'] ?? '';
                     const avg  = days > 0 ? (data.total_units / days).toFixed(1) : 0;
                     document.getElementById('sr-stat-units').textContent   = data.total_units;
                     document.getElementById('sr-stat-revenue').textContent = '$' + data.total_revenue.toFixed(2);
+                    document.getElementById('sr-stat-profit').textContent  = '$' + (data.total_profit ? data.total_profit.toFixed(2) : '0.00');
                     document.getElementById('sr-stat-days').textContent    = days;
                     document.getElementById('sr-stat-avg').textContent     = avg;
                     document.getElementById('sales-last-updated').textContent = 'Updated: ' + new Date().toLocaleTimeString();
